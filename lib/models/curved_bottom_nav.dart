@@ -1,0 +1,130 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+class CurvedBottomNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final bool isAdmin;
+
+  const CurvedBottomNav({
+    super.key,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    this.isAdmin = false,
+  }) : assert(selectedIndex >= 0 && selectedIndex < (isAdmin ? 5 : 4));
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <_NavItem>[
+      const _NavItem('Trang chủ', LucideIcons.house),
+      const _NavItem('Chấm công', LucideIcons.calendar),
+      const _NavItem('Lịch sử', LucideIcons.fileText),
+      if (isAdmin) const _NavItem('Nhân viên', LucideIcons.usersRound),
+      const _NavItem('Cá nhân', LucideIcons.userRound),
+    ];
+
+    return Material(
+      color: Colors.white,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: Row(
+              children: [
+                for (var index = 0; index < items.length; index++)
+                  Expanded(
+                    child: _NavButton(
+                      item: items[index],
+                      selected: index == selectedIndex,
+                      onTap: () => onDestinationSelected(index),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  final String label;
+  final IconData icon;
+
+  const _NavItem(this.label, this.icon);
+}
+
+class _NavButton extends StatelessWidget {
+  final _NavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? const Color(0xFF2563EB) : const Color(0xFF6B7280);
+
+    final duration = Duration(
+      milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
+    );
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        focusColor: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: duration,
+                curve: Curves.easeOut,
+                width: 48,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? const Color(0xFFEAF2FF)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, size: 26, color: color),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                item.label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: color,
+                  height: 1.2,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
