@@ -16,14 +16,22 @@ class _LoginScreenState extends State<LoginScreen> {
   static const rememberedLoginKey = 'aivycheck_remembered_login_v1';
 
   final formKey = GlobalKey<FormState>();
+
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
+  final usernameFocusNode = FocusNode();
+
+  final Map<String, String> rememberedLogins = {};
+
   final session = AttendanceSession();
   final preferences = SharedPreferencesAsync();
+
+  String? selectedRememberedUsername;
 
   bool obscurePassword = true;
   bool rememberLogin = false;
   bool rememberedLoginLoaded = false;
+
   bool loading = true;
   bool opening = false;
   bool updatingRemember = false;
@@ -41,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    usernameFocusNode.dispose();
     usernameController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -52,23 +61,56 @@ class _LoginScreenState extends State<LoginScreen> {
     if (text == null) return;
 
     final json = Map<String, dynamic>.from(jsonDecode(text) as Map);
-    final username = json['username'];
-    final password = json['password'];
+    final accounts = <String, String>{};
 
-    if (json['version'] != 1 ||
-        username is! String ||
-        username.trim().isEmpty ||
-        password is! String ||
-        password.isEmpty) {
-      await preferences.remove(rememberedLoginKey);
-      return;
+    // Đọc thông tin được ghi nhớ bằng phiên bản cũ.
+    if (json['version'] == 1) {
+      final username = json['username'];
+      final password = json['password'];
+
+      if (username is! String ||
+          username.trim().isEmpty ||
+          password is! String ||
+          password.isEmpty) {
+        throw const FormatException('Thông tin ghi nhớ không hợp lệ.');
+      }
+
+      accounts[username.trim().toLowerCase()] = password;
+    } else if (json['version'] == 2 && json['accounts'] is Map) {
+      // Phiên bản mới có thể ghi nhớ nhiều tài khoản.
+      for (final entry in (json['accounts'] as Map).entries) {
+        final username = entry.key;
+        final password = entry.value;
+
+        if (username is String &&
+            username.trim().isNotEmpty &&
+            password is String &&
+            password.isNotEmpty) {
+          accounts[username.trim().toLowerCase()] = password;
+        }
+      }
+    } else {
+      throw const FormatException('Thông tin ghi nhớ không hợp lệ.');
     }
 
     if (!mounted) return;
 
-    usernameController.text = username;
-    passwordController.text = password;
-    rememberLogin = true;
+    // Chỉ nạp danh sách gợi ý, không tự điền hai ô nhập.
+    rememberedLogins
+      ..clear()
+      ..addAll(accounts);
+  }
+
+  Future<void> saveRememberedLogins(Map<String, String> accounts) async {
+    if (accounts.isEmpty) {
+      await preferences.remove(rememberedLoginKey);
+      return;
+    }
+
+    await preferences.setString(
+      rememberedLoginKey,
+      jsonEncode({'version': 2, 'accounts': accounts}),
+    );
   }
 
   Future<void> loadAccounts() async {
@@ -89,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
           await restoreRememberedLogin();
         } catch (_) {
           if (!mounted) return;
+
           rememberNotice =
               'Chưa đọc được thông tin đã nhớ. '
               'Bạn vẫn có thể nhập tài khoản và mật khẩu để đăng nhập.';
@@ -118,8 +161,14 @@ class _LoginScreenState extends State<LoginScreen> {
         rememberLogin = true;
         rememberNotice = null;
       });
+
       return;
     }
+
+    final username = usernameController.text.trim().toLowerCase();
+
+    // Chỉ bỏ ghi nhớ tài khoản đang nhập.
+    final next = {...rememberedLogins}..remove(username);
 
     setState(() {
       rememberLogin = false;
@@ -128,7 +177,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await preferences.remove(rememberedLoginKey);
+      await saveRememberedLogins(next);
+
+      if (!mounted) return;
+
+      rememberedLogins
+        ..clear()
+        ..addAll(next);
+
+      selectedRememberedUsername = null;
     } catch (_) {
       if (!mounted) return;
 
@@ -145,10 +202,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> login() async {
     if (blocked) return;
-    if (!formKey.currentState!.validate()) return;
+    if (!(formKey.currentState?.validate() ?? false)) return;
 
     final username = usernameController.text.trim().toLowerCase();
     final password = passwordController.text;
+
     final message = session.signIn(username, password);
 
     if (message != null) {
@@ -163,18 +221,19 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      final next = {...rememberedLogins};
+
       if (rememberLogin) {
-        await preferences.setString(
-          rememberedLoginKey,
-          jsonEncode({
-            'version': 1,
-            'username': username,
-            'password': password,
-          }),
-        );
+        next[username] = password;
       } else {
-        await preferences.remove(rememberedLoginKey);
+        next.remove(username);
       }
+
+      await saveRememberedLogins(next);
+
+      rememberedLogins
+        ..clear()
+        ..addAll(next);
     } catch (_) {
       session.signOut();
 
@@ -184,6 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
         opening = false;
         error = 'Chưa lưu được lựa chọn ghi nhớ. Hãy thử lại.';
       });
+
       return;
     }
 
@@ -198,10 +258,119 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget buildUsernameField() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RawAutocomplete<String>(
+          textEditingController: usernameController,
+          focusNode: usernameFocusNode,
+
+          // Gợi ý tài khoản bắt đầu bằng chữ đang nhập.
+          optionsBuilder: (value) {
+            final query = value.text.trim().toLowerCase();
+
+            // Ô trống thì không hiện gợi ý.
+            if (blocked || query.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+
+            return rememberedLogins.keys
+                .where((username) => username.startsWith(query))
+                .toList()
+              ..sort();
+          },
+          // Chọn tài khoản thì điền mật khẩu đã nhớ.
+          onSelected: (username) {
+            if (blocked) return;
+
+            setState(() {
+              selectedRememberedUsername = username;
+              passwordController.text = rememberedLogins[username]!;
+              rememberLogin = true;
+              error = null;
+              rememberNotice = null;
+            });
+
+            FocusScope.of(context).unfocus();
+          },
+
+          fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+            return TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: !blocked,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: null,
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) => onSubmitted(),
+
+              // Đổi tên tài khoản thì bỏ mật khẩu vừa tự điền.
+              onChanged: (value) {
+                if (selectedRememberedUsername != null &&
+                    value.trim().toLowerCase() != selectedRememberedUsername) {
+                  selectedRememberedUsername = null;
+                }
+              },
+
+              decoration: InputDecoration(
+                labelText: 'Tài khoản',
+                hintText: 'Nhập tên tài khoản',
+                prefixIcon: const Icon(Icons.person_outline),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Hãy nhập tài khoản.'
+                  : null,
+            );
+          },
+
+          optionsViewBuilder: (context, onSelected, options) {
+            final accounts = options.toList();
+
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 6,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: accounts.length,
+                      itemBuilder: (context, index) {
+                        final username = accounts[index];
+
+                        return ListTile(
+                          leading: const Icon(Icons.person_outline),
+                          title: Text(username),
+                          onTap: blocked ? null : () => onSelected(username),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -219,34 +388,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 16, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 32),
-                    TextFormField(
-                      controller: usernameController,
-                      enabled: !blocked,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: 'Tài khoản',
-                        hintText: 'Nhập tên tài khoản',
-                        prefixIcon: const Icon(Icons.person_outline),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'Hãy nhập tài khoản.'
-                          : null,
-                    ),
+
+                    buildUsernameField(),
+
                     const SizedBox(height: 18),
+
                     TextFormField(
                       controller: passwordController,
                       enabled: !blocked,
                       obscureText: obscurePassword,
                       autocorrect: false,
                       enableSuggestions: false,
+                      autofillHints: null,
                       onFieldSubmitted: (_) => login(),
                       decoration: InputDecoration(
                         labelText: 'Mật khẩu',
@@ -273,7 +426,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? 'Hãy nhập mật khẩu.'
                           : null,
                     ),
+
                     const SizedBox(height: 8),
+
                     CheckboxListTile(
                       value: rememberLogin,
                       onChanged: blocked ? null : changeRememberLogin,
@@ -285,6 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(fontSize: 14),
                       ),
                     ),
+
                     if (rememberNotice != null) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -296,6 +452,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
+
                     if (error != null) ...[
                       const SizedBox(height: 16),
                       Text(
@@ -308,7 +465,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Text('Tải lại dữ liệu'),
                       ),
                     ],
+
                     const SizedBox(height: 24),
+
                     SizedBox(
                       width: double.infinity,
                       height: 56,

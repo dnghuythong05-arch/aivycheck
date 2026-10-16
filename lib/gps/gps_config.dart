@@ -1,9 +1,15 @@
 class GpsConfig {
+  static const double defaultRadiusMeters = 200;
+
   final double? latitude;
   final double? longitude;
   final double radiusMeters;
 
-  GpsConfig({this.latitude, this.longitude, this.radiusMeters = 100}) {
+  GpsConfig({
+    this.latitude,
+    this.longitude,
+    this.radiusMeters = defaultRadiusMeters,
+  }) {
     if (!radiusMeters.isFinite || radiusMeters < 1 || radiusMeters > 5000) {
       throw ArgumentError('Phạm vi phải từ 1 đến 5.000 mét.');
     }
@@ -38,7 +44,8 @@ class GpsConfig {
     return GpsConfig(
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      radiusMeters: (json['radiusMeters'] as num?)?.toDouble() ?? 100,
+      radiusMeters:
+          (json['radiusMeters'] as num?)?.toDouble() ?? defaultRadiusMeters,
     );
   }
 }

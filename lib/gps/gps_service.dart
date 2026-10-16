@@ -55,7 +55,7 @@ class GpsCheckResult {
 }
 
 class GpsService {
-  static const double maxAccuracyMeters = 100;
+  static const double maxAccuracyMeters = 150;
 
   static const Duration _positionWaitLimit = Duration(seconds: 10);
 
@@ -220,8 +220,6 @@ class GpsService {
                 bestCheckResult = result;
               }
 
-              // Mẫu chưa nằm đủ trong phạm vi: tiếp tục chờ
-              // mẫu tiếp theo đến hết giới hạn thời gian.
               if (result.distanceMeters > result.radiusMeters ||
                   !(total <= result.radiusMeters)) {
                 return;

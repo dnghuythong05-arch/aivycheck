@@ -4,6 +4,7 @@ import '../models/attendance_session.dart';
 import 'gps_config.dart';
 import 'gps_service.dart';
 import 'gps_status_bar.dart';
+import '../widgets/app_header.dart';
 
 class GpsSettingsScreen extends StatefulWidget {
   final AttendanceSession session;
@@ -207,6 +208,37 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
     });
   }
 
+  Future<void> clearPlace() async {
+    if (busy || !widget.session.gpsConfig.hasCenter) return;
+
+    await runTask(() async {
+      final error = await widget.session.clearGpsConfig();
+
+      if (error != null) {
+        throw GpsException(
+          error,
+          title: 'Chưa xóa được địa điểm',
+          noticeType: GpsNoticeType.error,
+        );
+      }
+
+      if (!mounted) return;
+
+      final config = widget.session.gpsConfig;
+      radiusController.text = gpsMetersText(config.radiusMeters);
+
+      showNotice(
+        'Đã xóa địa điểm chấm công',
+        'Nhân viên chưa thể chấm công. '
+            'Bấm “Lấy vị trí và lưu địa điểm” để thiết lập lại.',
+        type: GpsNoticeType.info,
+        newDetails:
+            'Phạm vi được giữ lại: '
+            '${gpsMetersText(config.radiusMeters)} m.',
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = widget.session.gpsConfig;
@@ -218,7 +250,11 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('Địa điểm chấm công')),
+      appBar: AppHeader(
+        title: 'Địa điểm chấm công',
+        subtitle: 'Thiết lập vị trí và phạm vi chấm công',
+        onBack: () => Navigator.of(context).pop(),
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -307,6 +343,29 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
+                  if (canEdit) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: !busy && config.hasCenter ? clearPlace : null,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: const Text('Xóa địa điểm'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                        shape: buttonShape,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Sau khi xóa, nhân viên chưa thể chấm công '
+                      'cho đến khi thiết lập lại địa điểm.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF6B7280),
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Text(
                     'Chỉ chấp nhận sai số tối đa '

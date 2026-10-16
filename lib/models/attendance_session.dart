@@ -73,6 +73,11 @@ class AttendanceSession {
 
   GpsConfig get gpsConfig => _data.gps;
 
+  String? get _gpsUnavailable => gpsConfig.hasCenter
+      ? null
+      : 'Chưa có địa điểm chấm công. '
+            'Hãy nhờ Admin thiết lập địa điểm trước.';
+
   List<AppUser> get employees {
     if (!isAdmin) return const [];
 
@@ -420,6 +425,10 @@ class AttendanceSession {
       return 'Không thể chấm công thay nhân viên.';
     }
 
+    final gpsError = _gpsUnavailable;
+
+    if (gpsError != null) return gpsError;
+
     final user = currentUser!;
     final shiftId = selectedShiftId;
 
@@ -446,6 +455,10 @@ class AttendanceSession {
       final pendingError = _unavailable;
 
       if (pendingError != null) return pendingError;
+
+      final pendingGpsError = _gpsUnavailable;
+
+      if (pendingGpsError != null) return pendingGpsError;
 
       if (!isOwnSession ||
           _actorId != user.id ||
@@ -727,6 +740,24 @@ class AttendanceSession {
     return _commit(gps: config);
   }
 
+  Future<String?> clearGpsConfig() async {
+    final error = _unavailable;
+
+    if (error != null) return error;
+
+    if (!isAdmin) {
+      return 'Chỉ Admin được xóa địa điểm chấm công.';
+    }
+
+    final saveError = await _commit(
+      gps: GpsConfig(radiusMeters: gpsConfig.radiusMeters),
+    );
+
+    if (saveError == null) clearFaceVerification();
+
+    return saveError;
+  }
+
   Future<String?> checkIn(DateTime now) async {
     final error = _unavailable;
 
@@ -735,6 +766,10 @@ class AttendanceSession {
     if (!isOwnSession) {
       return 'Không thể chấm công thay nhân viên.';
     }
+
+    final gpsError = _gpsUnavailable;
+
+    if (gpsError != null) return gpsError;
 
     final shift = selectedShift;
 
@@ -780,6 +815,10 @@ class AttendanceSession {
     if (!isOwnSession) {
       return 'Không thể chấm công thay nhân viên.';
     }
+
+    final gpsError = _gpsUnavailable;
+
+    if (gpsError != null) return gpsError;
 
     final record = selectedRecord;
 
