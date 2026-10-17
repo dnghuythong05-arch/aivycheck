@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/attendance_record.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
@@ -8,6 +9,7 @@ class HistoryScreen extends StatelessWidget {
   final List<AttendanceRecord> records;
   final DateTime now;
   final VoidCallback onBackHome;
+
   final Future<void> Function(AttendanceRecord)? onDeleteRecord;
 
   final bool busy;
@@ -30,8 +32,10 @@ class HistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppHeader(title: title, subtitle: subtitle, onBack: onBackHome),
       body: SafeArea(
         top: false,
@@ -56,7 +60,7 @@ class HistoryScreen extends StatelessWidget {
                               'Chưa có dữ liệu chấm công',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AiVieTheme.muted,
+                                color: colors.muted,
                               ),
                             ),
                           ),
@@ -64,10 +68,12 @@ class HistoryScreen extends StatelessWidget {
                       : ListView.separated(
                           padding: const EdgeInsets.all(24),
                           itemCount: records.length,
-                          separatorBuilder: (_, index) =>
-                              const SizedBox(height: 12),
+                          separatorBuilder: (_, index) {
+                            return const SizedBox(height: 12);
+                          },
                           itemBuilder: (_, index) {
                             final record = records[index];
+
                             final canDelete =
                                 !busy &&
                                 onDeleteRecord != null &&

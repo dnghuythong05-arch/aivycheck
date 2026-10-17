@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class StatCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -20,6 +22,8 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     return Expanded(
       child: Card(
         margin: EdgeInsets.zero,
@@ -28,7 +32,7 @@ class StatCard extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          side: BorderSide(color: colors.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -42,10 +46,10 @@ class StatCard extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF374151),
+                        color: colors.text,
                       ),
                     ),
                   ),
@@ -69,10 +73,10 @@ class StatCard extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1F2937),
+                      color: colors.text,
                     ),
                   ),
                 ),
@@ -82,7 +86,7 @@ class StatCard extends StatelessWidget {
                 note,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                style: TextStyle(fontSize: 13, color: colors.muted),
               ),
             ],
           ),

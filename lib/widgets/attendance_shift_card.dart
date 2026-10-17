@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
@@ -8,6 +9,7 @@ class AttendanceShiftCard extends StatelessWidget {
   final AttendanceRecord? record;
   final DateTime now;
   final bool busy;
+
   final VoidCallback onAttendance;
   final VoidCallback onOpenSchedule;
   final VoidCallback? onRegisterFace;
@@ -26,10 +28,13 @@ class AttendanceShiftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
+
     final currentShift = shift;
     final currentRecord = record;
 
     final working = currentRecord != null && currentRecord.checkOut == null;
+
     final completed = currentRecord?.checkOut != null;
 
     final buttonLabel = busy
@@ -41,6 +46,7 @@ class AttendanceShiftCard extends StatelessWidget {
         : 'CHECK IN';
 
     return Card(
+      color: colors.surface,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -48,9 +54,7 @@ class AttendanceShiftCard extends StatelessWidget {
           children: [
             Text(
               'Ca đang chọn',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AiVieTheme.muted,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
             ),
             const SizedBox(height: 8),
             Text(
@@ -67,7 +71,7 @@ class AttendanceShiftCard extends StatelessWidget {
               Text(
                 formatAttendanceDate(currentShift.start),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AiVieTheme.muted,
+                  color: colors.muted,
                 ),
               ),
             ],
@@ -80,14 +84,14 @@ class AttendanceShiftCard extends StatelessWidget {
                     ? 'Mở Lịch làm để chọn ca được giao.'
                     : 'Bạn chưa chấm công ca này.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AiVieTheme.muted,
+                  color: colors.muted,
                 ),
               )
             else ...[
               Text(
                 working ? 'Đang làm việc' : 'Đã hoàn thành ca',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF15803D),
+                  color: colors.success,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -97,9 +101,7 @@ class AttendanceShiftCard extends StatelessWidget {
                     ? 'Đi trễ: ${currentRecord.lateAmountText}'
                     : 'Đúng giờ',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: currentRecord.isLate
-                      ? const Color(0xFFB45309)
-                      : const Color(0xFF15803D),
+                  color: currentRecord.isLate ? colors.warning : colors.success,
                 ),
               ),
               const SizedBox(height: 18),
@@ -169,23 +171,20 @@ class _AttendanceTimeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
 
     return Row(
       children: [
         Expanded(
           child: Text(
             label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AiVieTheme.muted,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
           ),
         ),
         const SizedBox(width: 12),
         Text(
           value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(color: colors.text),
         ),
       ],
     );

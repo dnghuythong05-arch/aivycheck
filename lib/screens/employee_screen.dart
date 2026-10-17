@@ -5,6 +5,7 @@ import '../home/shift_card.dart';
 import '../home/stat_card.dart';
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
+import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 
 class EmployeeHomeScreen extends StatelessWidget {
@@ -33,8 +34,11 @@ class EmployeeHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: colors.background,
       appBar: const AppHeader(
         title: 'Trang chủ',
         subtitle: 'Theo dõi ca làm và chấm công',
@@ -44,7 +48,9 @@ class EmployeeHomeScreen extends StatelessWidget {
         child: SingleChildScrollView(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1120),
+              constraints: const BoxConstraints(
+                maxWidth: AiVieTheme.contentWidth,
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
                 child: Column(
@@ -59,26 +65,18 @@ class EmployeeHomeScreen extends StatelessWidget {
                             children: [
                               Text(
                                 'Xin chào, $fullName',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
+                                style: theme.textTheme.headlineSmall,
                               ),
                               const SizedBox(height: 8),
-                              const Text(
+                              Text(
                                 'Chúc bạn một ngày làm việc hiệu quả.',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFF6B7280),
+                                  color: colors.muted,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          tooltip: 'Cá nhân',
-                          onPressed: onOpenProfile,
-                          icon: const Icon(Icons.person_outline_rounded),
-                          color: const Color(0xFF6B7280),
                         ),
                       ],
                     ),
@@ -99,8 +97,8 @@ class EmployeeHomeScreen extends StatelessWidget {
                             note: record == null
                                 ? 'Chưa vào ca'
                                 : 'Đã ghi nhận',
-                            iconColor: const Color(0xFF16A34A),
-                            backgroundColor: Colors.white,
+                            iconColor: colors.success,
+                            backgroundColor: colors.surface,
                           ),
                           const SizedBox(width: 12),
                           StatCard(
@@ -112,8 +110,8 @@ class EmployeeHomeScreen extends StatelessWidget {
                                 : record!.isLate
                                 ? 'Đi trễ'
                                 : 'Đúng giờ',
-                            iconColor: const Color(0xFFF59E0B),
-                            backgroundColor: Colors.white,
+                            iconColor: colors.warning,
+                            backgroundColor: colors.surface,
                           ),
                           const SizedBox(width: 12),
                           StatCard(
@@ -125,46 +123,43 @@ class EmployeeHomeScreen extends StatelessWidget {
                                 : record!.checkOut == null
                                 ? 'Đang làm'
                                 : 'Đã kết thúc',
-                            iconColor: const Color(0xFF2563EB),
-                            backgroundColor: Colors.white,
+                            iconColor: colors.primary,
+                            backgroundColor: colors.surface,
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Thời gian hiển thị theo giờ : phút : giây',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                      style: TextStyle(fontSize: 12, color: colors.muted),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Thao tác nhanh',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    Text('Thao tác nhanh', style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         QuickActionItem(
                           icon: Icons.location_on_outlined,
                           title: 'CHECK IN/OUT',
-                          iconColor: const Color(0xFF2563EB),
-                          iconBackground: const Color(0xFFF3F4F6),
+                          iconColor: colors.primary,
+                          iconBackground: colors.surfaceTint,
                           onTap: onOpenAttendance,
                         ),
                         const SizedBox(width: 12),
                         QuickActionItem(
                           icon: Icons.event_note_outlined,
                           title: 'Lịch làm',
-                          iconColor: const Color(0xFF2563EB),
-                          iconBackground: const Color(0xFFF3F4F6),
+                          iconColor: colors.primary,
+                          iconBackground: colors.surfaceTint,
                           onTap: onOpenSchedule,
                         ),
                         const SizedBox(width: 12),
                         QuickActionItem(
                           icon: Icons.account_balance_wallet_outlined,
                           title: 'Bảng lương',
-                          iconColor: const Color(0xFF2563EB),
-                          iconBackground: const Color(0xFFF3F4F6),
+                          iconColor: colors.primary,
+                          iconBackground: colors.surfaceTint,
                           onTap: onOpenSalary,
                         ),
                       ],

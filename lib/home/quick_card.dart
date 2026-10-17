@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class QuickActionItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -18,12 +20,14 @@ class QuickActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     return Expanded(
       child: Material(
-        color: Colors.white,
+        color: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
+          side: BorderSide(color: colors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -48,10 +52,10 @@ class QuickActionItem extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF374151),
+                    color: colors.text,
                   ),
                 ),
               ],

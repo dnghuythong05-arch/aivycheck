@@ -297,7 +297,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
         feedback(faceError);
         return;
       }
-      // Khuôn mặt đúng rồi mới lấy vị trí mới.
+      // Khuôn mặt đúng mới lấy vị trí mới.
       final result = await verifyGps();
       if (!mounted || result == null) return;
       final time = DateTime.now();

@@ -109,10 +109,8 @@ class GpsService {
     StreamSubscription<Position>? subscription;
     Timer? timer;
 
-    // Mẫu có accuracy tốt nhất trong lượt hiện tại.
     Position? bestPosition;
 
-    // Trong các mẫu có accuracy đạt giới hạn, giữ mẫu có
     // khoảng cách + accuracy nhỏ nhất để giải thích khi thất bại.
     GpsCheckResult? bestCheckResult;
 
@@ -195,8 +193,7 @@ class GpsService {
                 return;
               }
 
-              // Kiểm tra chấm công: xét đủ điều kiện ngay trong
-              // lượt chờ, thay vì kết thúc chỉ vì accuracy đạt.
+              // Kiểm tra chấm công: xét đủ điều kiện ngay trong lượt chờ
               final result = _toCheckResult(position, currentConfig);
 
               if (!result.distanceMeters.isFinite) {
@@ -284,9 +281,7 @@ class GpsService {
       );
     } on LocationServiceDisabledException {
       throw GpsException(
-        kIsWeb
-            ? 'Hãy bật dịch vụ vị trí trong Windows.'
-            : 'Hãy bật dịch vụ vị trí trong cài đặt thiết bị.',
+        kIsWeb ? 'Hãy bật vị trí.' : 'Hãy bật vị trí trong cài đặt thiết bị.',
         title: 'Chưa bật vị trí',
         kind: GpsFailure.unavailable,
       );

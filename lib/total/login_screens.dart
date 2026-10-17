@@ -1,9 +1,12 @@
 import 'dart:convert';
 
+import 'package:aivycheck/theme/theme_toggle_button.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:aivycheck/models/attendance_session.dart';
-import 'package:aivycheck/total/employee_main_screens.dart';
+
+import '../models/attendance_session.dart';
+import '../theme/app_theme.dart';
+import 'employee_main_screens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,7 +42,9 @@ class _LoginScreenState extends State<LoginScreen> {
   String? error;
   String? rememberNotice;
 
-  bool get blocked => loading || opening || updatingRemember;
+  bool get blocked {
+    return loading || opening || updatingRemember;
+  }
 
   @override
   void initState() {
@@ -61,9 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (text == null) return;
 
     final json = Map<String, dynamic>.from(jsonDecode(text) as Map);
+
     final accounts = <String, String>{};
 
-    // Đọc thông tin được ghi nhớ bằng phiên bản cũ.
     if (json['version'] == 1) {
       final username = json['username'];
       final password = json['password'];
@@ -77,7 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       accounts[username.trim().toLowerCase()] = password;
     } else if (json['version'] == 2 && json['accounts'] is Map) {
-      // Phiên bản mới có thể ghi nhớ nhiều tài khoản.
       for (final entry in (json['accounts'] as Map).entries) {
         final username = entry.key;
         final password = entry.value;
@@ -95,7 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    // Chỉ nạp danh sách gợi ý, không tự điền hai ô nhập.
     rememberedLogins
       ..clear()
       ..addAll(accounts);
@@ -142,7 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      setState(() => loading = false);
+      setState(() {
+        loading = false;
+      });
     } catch (_) {
       if (!mounted) return;
 
@@ -167,7 +172,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final username = usernameController.text.trim().toLowerCase();
 
-    // Chỉ bỏ ghi nhớ tài khoản đang nhập.
     final next = {...rememberedLogins}..remove(username);
 
     setState(() {
@@ -195,22 +199,27 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } finally {
       if (mounted) {
-        setState(() => updatingRemember = false);
+        setState(() {
+          updatingRemember = false;
+        });
       }
     }
   }
 
   Future<void> login() async {
     if (blocked) return;
-    if (!(formKey.currentState?.validate() ?? false)) return;
+    if (!formKey.currentState!.validate()) return;
 
     final username = usernameController.text.trim().toLowerCase();
-    final password = passwordController.text;
 
+    final password = passwordController.text;
     final message = session.signIn(username, password);
 
     if (message != null) {
-      setState(() => error = message);
+      setState(() {
+        error = message;
+      });
+
       return;
     }
 
@@ -261,31 +270,30 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget buildUsernameField() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final colors = AiVieTheme.of(context);
+
         return RawAutocomplete<String>(
           textEditingController: usernameController,
           focusNode: usernameFocusNode,
-
-          // Gợi ý tài khoản bắt đầu bằng chữ đang nhập.
           optionsBuilder: (value) {
-            final query = value.text.trim().toLowerCase();
-
-            // Ô trống thì không hiện gợi ý.
-            if (blocked || query.isEmpty) {
+            if (blocked || value.text.trim().isEmpty) {
               return const Iterable<String>.empty();
             }
+
+            final query = value.text.trim().toLowerCase();
 
             return rememberedLogins.keys
                 .where((username) => username.startsWith(query))
                 .toList()
               ..sort();
           },
-          // Chọn tài khoản thì điền mật khẩu đã nhớ.
           onSelected: (username) {
             if (blocked) return;
 
             setState(() {
               selectedRememberedUsername = username;
               passwordController.text = rememberedLogins[username]!;
+
               rememberLogin = true;
               error = null;
               rememberNotice = null;
@@ -293,7 +301,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
             FocusScope.of(context).unfocus();
           },
-
           fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
             return TextFormField(
               controller: controller,
@@ -304,39 +311,44 @@ class _LoginScreenState extends State<LoginScreen> {
               autofillHints: null,
               textInputAction: TextInputAction.next,
               onFieldSubmitted: (_) => onSubmitted(),
-
-              // Đổi tên tài khoản thì bỏ mật khẩu vừa tự điền.
               onChanged: (value) {
                 if (selectedRememberedUsername != null &&
                     value.trim().toLowerCase() != selectedRememberedUsername) {
                   selectedRememberedUsername = null;
                 }
               },
-
+              style: TextStyle(color: colors.text),
+              cursorColor: colors.primary,
               decoration: InputDecoration(
                 labelText: 'Tài khoản',
                 hintText: 'Nhập tên tài khoản',
                 prefixIcon: const Icon(Icons.person_outline),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: colors.surface,
+                labelStyle: TextStyle(color: colors.muted),
+                hintStyle: TextStyle(color: colors.muted),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Hãy nhập tài khoản.'
-                  : null,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Hãy nhập tài khoản.';
+                }
+
+                return null;
+              },
             );
           },
-
           optionsViewBuilder: (context, onSelected, options) {
+            final colors = AiVieTheme.of(context);
             final accounts = options.toList();
 
             return Align(
               alignment: Alignment.topLeft,
               child: Material(
                 elevation: 6,
-                color: Colors.white,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
@@ -351,8 +363,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         final username = accounts[index];
 
                         return ListTile(
-                          leading: const Icon(Icons.person_outline),
-                          title: Text(username),
+                          leading: Icon(
+                            Icons.person_outline,
+                            color: colors.muted,
+                          ),
+                          title: Text(
+                            username,
+                            style: TextStyle(color: colors.text),
+                          ),
                           onTap: blocked ? null : () => onSelected(username),
                         );
                       },
@@ -369,47 +387,64 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: colors.background,
+      appBar: AppBar(
+        backgroundColor: colors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actions: const [ThemeToggleButton(), SizedBox(width: 16)],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
                 key: formKey,
                 child: Column(
                   children: [
-                    Image.asset('assets/images/logo.png', width: 230),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AiVieTheme.of(context).background,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Image.asset('assets/images/logo.png', width: 230),
+                    ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Quản lý nhân sự & chấm công',
-                      style: TextStyle(fontSize: 16, color: Color(0xFF64748B)),
+                      style: TextStyle(fontSize: 16, color: colors.muted),
                     ),
                     const SizedBox(height: 32),
-
                     buildUsernameField(),
-
                     const SizedBox(height: 18),
-
                     TextFormField(
                       controller: passwordController,
                       enabled: !blocked,
                       obscureText: obscurePassword,
                       autocorrect: false,
                       enableSuggestions: false,
-                      autofillHints: null,
+                      style: TextStyle(color: colors.text),
+                      cursorColor: colors.primary,
                       onFieldSubmitted: (_) => login(),
                       decoration: InputDecoration(
                         labelText: 'Mật khẩu',
+                        labelStyle: TextStyle(color: colors.muted),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           onPressed: blocked
                               ? null
-                              : () => setState(
-                                  () => obscurePassword = !obscurePassword,
-                                ),
+                              : () {
+                                  setState(() {
+                                    obscurePassword = !obscurePassword;
+                                  });
+                                },
                           icon: Icon(
                             obscurePassword
                                 ? Icons.visibility_outlined
@@ -417,57 +452,53 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: colors.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Hãy nhập mật khẩu.'
-                          : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Hãy nhập mật khẩu.';
+                        }
+
+                        return null;
+                      },
                     ),
-
                     const SizedBox(height: 8),
-
                     CheckboxListTile(
                       value: rememberLogin,
                       onChanged: blocked ? null : changeRememberLogin,
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       activeColor: const Color(0xFF2582F5),
-                      title: const Text(
+                      checkColor: Colors.white,
+                      title: Text(
                         'Nhớ tài khoản và mật khẩu',
-                        style: TextStyle(fontSize: 14),
+                        style: TextStyle(fontSize: 14, color: colors.text),
                       ),
                     ),
-
                     if (rememberNotice != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         rememberNotice!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                        ),
+                        style: TextStyle(fontSize: 13, color: colors.muted),
                       ),
                     ],
-
                     if (error != null) ...[
                       const SizedBox(height: 16),
                       Text(
                         error!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Color(0xFFB91C1C)),
+                        style: TextStyle(color: colors.error),
                       ),
                       TextButton(
                         onPressed: blocked ? null : loadAccounts,
                         child: const Text('Tải lại dữ liệu'),
                       ),
                     ],
-
                     const SizedBox(height: 24),
-
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -475,6 +506,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: blocked ? null : login,
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF2582F5),
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -485,6 +517,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
                               )
                             : const Text(

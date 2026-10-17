@@ -474,84 +474,181 @@
 
   function prepareDialogStyle() {
     if (document.getElementById('aivy-face-style')) return;
-
+  
     const font = document.createElement('link');
-
     font.rel = 'stylesheet';
     font.href =
       'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap';
-
+  
     const style = document.createElement('style');
     style.id = 'aivy-face-style';
-
+  
     style.textContent = `
       .aivy-face-dialog {
-        box-sizing:border-box;
-        width:min(640px,calc(100vw - 48px));
-        max-height:85vh;
-        overflow:auto;
-        padding:24px;
-        border:1px solid #e5e7eb;
-        border-radius:12px;
-        background:#f7f8fa;
-        color:#1f2937;
-        font:14px/1.5 Inter,Arial,sans-serif;
-        box-shadow:0 16px 48px #0002;
+        --aivie-background: #f7f8fa;
+        --aivie-surface: #ffffff;
+        --aivie-text: #1f2937;
+        --aivie-muted: #6b7280;
+        --aivie-border: #e5e7eb;
+        --aivie-primary: #2563eb;
+        --aivie-hover: #eff6ff;
+        --aivie-action: #2563eb;
+        --aivie-action-hover: #1d4ed8;
+        --aivie-error: #b91c1c;
+        color-scheme: light;
       }
-
+  
+      html[data-aivie-theme="dark"] .aivy-face-dialog {
+        --aivie-background: #111827;
+        --aivie-surface: #1b2433;
+        --aivie-text: #f3f4f6;
+        --aivie-muted: #b5bfce;
+        --aivie-border: #354154;
+        --aivie-primary: #93b4ff;
+        --aivie-hover: #263b61;
+        --aivie-error: #fca5a5;
+        color-scheme: dark;
+      }
+  
+      .aivy-face-dialog {
+        box-sizing: border-box;
+        width: min(640px, calc(100vw - 32px));
+        max-height: calc(100vh - 32px);
+        max-height: calc(100dvh - 32px);
+        margin: auto;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--aivie-border);
+        border-radius: 12px;
+        background: var(--aivie-background);
+        color: var(--aivie-text);
+        font: 14px/1.5 Inter, Arial, sans-serif;
+        box-shadow: 0 16px 48px #0002;
+      }
+  
+      .aivy-face-dialog[open] {
+        display: flex;
+        flex-direction: column;
+      }
+  
+      .aivy-face-dialog [hidden] {
+        display: none !important;
+      }
+  
       .aivy-face-dialog::backdrop {
-        background:#1f293733;
+        background: #1f293733;
       }
-
-      .aivy-face-dialog h2 {
-        margin:0 0 8px;
-        font-size:20px;
-        font-weight:600;
+  
+      .aivy-face-header {
+        flex: 0 0 auto;
+        padding: 20px 24px 12px;
       }
-
-      .aivy-face-dialog button {
-        font:inherit;
-        font-weight:500;
-        cursor:pointer;
-        border-radius:12px;
-        padding:12px 16px;
-        border:1px solid #e5e7eb;
-        background:white;
-        color:#2563eb;
+  
+      .aivy-face-header h2 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
       }
-
-      .aivy-face-dialog button:disabled {
-        opacity:.5;
-        cursor:default;
+  
+      .aivy-face-header [data-name] {
+        margin: 6px 0 0;
+        color: var(--aivie-muted);
+        overflow-wrap: anywhere;
       }
-
-      .aivy-face-dialog button:hover:not(:disabled) {
-        background:#eff6ff;
+  
+      .aivy-face-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 0 24px 16px;
       }
-
-      .aivy-face-dialog button:focus-visible {
-        outline:2px solid #2563eb;
-        outline-offset:2px;
+  
+      .aivy-face-dialog video {
+        display: block;
+        width: 100%;
+        height: clamp(120px, 45vh, 360px);
+        height: clamp(120px, 45dvh, 360px);
+        object-fit: contain;
+        border-radius: 12px;
+        background: #111827;
+        transform: scaleX(-1);
       }
-
-      .aivy-face-dialog [data-capture] {
-        background:#2563eb;
-        color:white;
-        border-color:#2563eb;
-      }
-
-      .aivy-face-dialog [data-capture]:hover:not(:disabled) {
-        background:#1d4ed8;
-      }
-
+  
       .aivy-face-dialog [data-status] {
-        margin:16px 0;
-        min-height:42px;
-        color:#6b7280;
-        white-space:pre-line;
+        margin: 12px 0 0;
+        min-height: 42px;
+        line-height: 1.5;
+        color: var(--aivie-muted);
+        white-space: pre-line;
+      }
+  
+      .aivy-face-footer {
+        flex: 0 0 auto;
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--aivie-border);
+        background: var(--aivie-background);
+      }
+  
+      .aivy-face-dialog button {
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 12px 16px;
+        border: 1px solid var(--aivie-border);
+        background: var(--aivie-surface);
+        color: var(--aivie-primary);
+      }
+  
+      .aivy-face-dialog button:disabled {
+        opacity: .5;
+        cursor: default;
+      }
+  
+      .aivy-face-dialog button:hover:not(:disabled) {
+        background: var(--aivie-hover);
+      }
+  
+      .aivy-face-dialog button:focus-visible {
+        outline: 2px solid var(--aivie-primary);
+        outline-offset: 2px;
+      }
+  
+      .aivy-face-dialog [data-capture] {
+        background: var(--aivie-action);
+        color: white;
+        border-color: var(--aivie-primary);
+      }
+  
+      .aivy-face-dialog [data-capture]:hover:not(:disabled) {
+        background: var(--aivie-action-hover);
+      }
+  
+      @media (max-height: 500px) {
+        .aivy-face-header {
+          padding: 12px 16px 8px;
+        }
+  
+        .aivy-face-body {
+          padding: 0 16px 12px;
+        }
+  
+        .aivy-face-footer {
+          padding: 12px 16px;
+        }
+  
+        .aivy-face-dialog video {
+          height: clamp(80px, 35vh, 180px);
+          height: clamp(80px, 35dvh, 180px);
+        }
       }
     `;
-
+  
     document.head.append(font, style);
   }
 
@@ -622,16 +719,17 @@
       const card = document.createElement('div');
 
       card.style.cssText =
-        'position:relative;min-width:0;padding:8px;' +
-        'border:1px solid #e5e7eb;border-radius:12px;background:white';
+      'position:relative;min-width:0;padding:8px;' +
+      'border:1px solid var(--aivie-border);' +
+      'border-radius:12px;background:var(--aivie-surface)';
 
       const image = document.createElement('img');
 
       image.alt = file.name || 'Ảnh đăng ký đã chọn';
 
       image.style.cssText =
-        'display:block;width:100%;height:160px;object-fit:contain;' +
-        'border-radius:8px;background:#f7f8fa';
+      'display:block;width:100%;height:160px;object-fit:contain;' +
+      'border-radius:8px;background:var(--aivie-background)';
 
       const label = document.createElement('div');
 
@@ -650,10 +748,11 @@
       removeButton.setAttribute('aria-label', 'Bỏ ảnh ' + image.alt);
 
       removeButton.style.cssText =
-        'position:absolute;top:4px;right:4px;width:30px;height:30px;' +
-        'border:1px solid #e5e7eb;border-radius:50%;background:white;' +
-        'color:#dc2626;font-size:24px;line-height:1;' +
-        'cursor:pointer;padding:0;box-shadow:0 2px 6px #0002';
+      'position:absolute;top:4px;right:4px;width:30px;height:30px;' +
+      'border:1px solid var(--aivie-border);' +
+      'border-radius:50%;background:var(--aivie-surface);' +
+      'color:var(--aivie-error);font-size:24px;line-height:1;' +
+      'cursor:pointer;padding:0;box-shadow:0 2px 6px #0002';
 
       const photo = {
         image,
@@ -942,56 +1041,50 @@
       dialog.className = 'aivy-face-dialog';
 
       dialog.innerHTML = `
+      <header class="aivy-face-header">
         <h2></h2>
-
-        <p data-name
-           style="margin:0 0 16px;color:#6b7280"></p>
-
+        <p data-name></p>
+      </header>
+    
+      <div class="aivy-face-body">
         <div data-photo hidden>
           <p style="margin:0 0 12px;line-height:1.5">
             Chọn 1–${MAX_REFERENCE_PHOTOS} ảnh rõ của cùng một người,
             đúng với tài khoản này. Có thể thêm ảnh từng lần.
             JPG, PNG hoặc WebP; mỗi ảnh tối đa 5 MB.
           </p>
-
+    
           <input data-file type="file" multiple hidden
                  accept="image/jpeg,image/png,image/webp">
-
+    
           <div style="display:flex;align-items:center;gap:12px;
                       flex-wrap:wrap;margin-bottom:12px">
             <button data-add-photo type="button"
-                    style="border-color:#2563eb">
+                    style="border-color:var(--aivie-primary)">
               Thêm ảnh
             </button>
-
+    
             <span data-photo-count aria-live="polite"
-                  style="font-size:14px;color:#6b7280"></span>
+                  style="font-size:14px;color:var(--aivie-muted)">
+            </span>
           </div>
-
+    
           <div data-previews hidden
                style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
                       gap:12px">
           </div>
         </div>
-
-        <video
-          autoplay
-          muted
-          playsinline
-          hidden
-          style="width:100%;aspect-ratio:4/3;object-fit:contain;
-                 border-radius:12px;background:#111827;
-                 transform:scaleX(-1)">
-        </video>
-
-        <p data-status role="status"
-           style="line-height:1.5;min-height:48px"></p>
-
-        <div style="display:flex;justify-content:flex-end;gap:12px">
-          <button data-cancel>Hủy</button>
-          <button data-capture disabled></button>
-        </div>
-      `;
+    
+        <video autoplay muted playsinline hidden></video>
+    
+        <p data-status role="status"></p>
+      </div>
+    
+      <footer class="aivy-face-footer">
+        <button data-cancel type="button">Hủy</button>
+        <button data-capture type="button" disabled></button>
+      </footer>
+    `;
 
       const video = dialog.querySelector('video');
       const photo = dialog.querySelector('[data-photo]');

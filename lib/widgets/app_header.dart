@@ -1,4 +1,7 @@
+import 'package:aivycheck/theme/theme_toggle_button.dart';
 import 'package:flutter/material.dart';
+
+import '../theme/app_theme.dart';
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   static final ValueNotifier<bool> _adminVisible = ValueNotifier<bool>(false);
@@ -25,13 +28,15 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     return ValueListenableBuilder<bool>(
       valueListenable: _adminVisible,
-      builder: (context, showAdmin, child) {
+      builder: (context, showAdmin, _) {
         return AppBar(
           automaticallyImplyLeading: false,
           toolbarHeight: 68,
-          backgroundColor: Colors.white,
+          backgroundColor: colors.surface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -43,7 +48,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   tooltip: 'Quay lại',
                   onPressed: onBack,
                   icon: const Icon(Icons.arrow_back_rounded),
-                  color: const Color(0xFF2563EB),
+                  color: colors.primary,
                 ),
           titleSpacing: onBack == null ? 24 : 0,
           title: Column(
@@ -54,10 +59,10 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1F2937),
+                  color: colors.text,
                 ),
               ),
               const SizedBox(height: 3),
@@ -65,58 +70,60 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF6B7280),
+                  color: colors.muted,
                 ),
               ),
             ],
           ),
-          actions: showAdmin
-              ? [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 24),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+          actions: [
+            const ThemeToggleButton(),
+            const SizedBox(width: 8),
+            if (showAdmin)
+              Padding(
+                padding: const EdgeInsets.only(right: 24),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 18,
+                          color: Colors.white,
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED),
-                          borderRadius: BorderRadius.circular(8),
+                        SizedBox(width: 6),
+                        Text(
+                          'Admin',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.admin_panel_settings_outlined,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Admin',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                ]
-              : null,
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
+                ),
+              ),
+            if (!showAdmin) const SizedBox(width: 16),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
             child: SizedBox(
               height: 1,
               width: double.infinity,
-              child: ColoredBox(color: Color(0xFFE5E7EB)),
+              child: ColoredBox(color: colors.border),
             ),
           ),
         );

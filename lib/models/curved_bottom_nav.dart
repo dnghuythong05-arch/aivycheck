@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../theme/app_theme.dart';
+
 class CurvedBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -16,6 +18,8 @@ class CurvedBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     final items = <_NavItem>[
       const _NavItem('Trang chủ', LucideIcons.house),
       const _NavItem('Chấm công', LucideIcons.calendar),
@@ -25,10 +29,10 @@ class CurvedBottomNav extends StatelessWidget {
     ];
 
     return Material(
-      color: Colors.white,
+      color: colors.surface,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colors.border)),
         ),
         child: SafeArea(
           top: false,
@@ -73,7 +77,8 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF2563EB) : const Color(0xFF6B7280);
+    final colors = AiVieTheme.of(context);
+    final color = selected ? colors.primary : colors.muted;
 
     final duration = Duration(
       milliseconds: MediaQuery.of(context).disableAnimations ? 0 : 180,
@@ -87,7 +92,7 @@ class _NavButton extends StatelessWidget {
         hoverColor: Colors.transparent,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        focusColor: const Color(0xFFF3F4F6),
+        focusColor: colors.surfaceTint,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
@@ -100,9 +105,7 @@ class _NavButton extends StatelessWidget {
                 width: 48,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFFEAF2FF)
-                      : Colors.transparent,
+                  color: selected ? colors.primarySoft : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(item.icon, size: 26, color: color),

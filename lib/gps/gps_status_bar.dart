@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import 'gps_config.dart';
 import 'gps_service.dart';
@@ -10,11 +12,14 @@ class GpsStatusBar extends StatefulWidget {
   final String message;
   final String? details;
   final GpsNoticeType noticeType;
+
   final bool busy;
   final bool showActions;
   final bool draggable;
+
   final VoidCallback? onOpenSettings;
   final VoidCallback? onRetry;
+  final VoidCallback? onClearPlace;
 
   const GpsStatusBar({
     super.key,
@@ -28,6 +33,7 @@ class GpsStatusBar extends StatefulWidget {
     this.draggable = false,
     this.onOpenSettings,
     this.onRetry,
+    this.onClearPlace,
   });
 
   @override
@@ -38,20 +44,26 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
   double progress = 0;
   bool dragging = false;
 
-  bool get hasDetails => widget.details?.trim().isNotEmpty == true;
+  bool get hasDetails {
+    return widget.details?.trim().isNotEmpty == true;
+  }
 
-  bool get hasContent => widget.showActions || hasDetails;
+  bool get hasContent {
+    return widget.showActions || hasDetails;
+  }
 
   Color get color {
+    final colors = AiVieTheme.of(context);
+
     switch (widget.noticeType) {
       case GpsNoticeType.info:
-        return AiVieTheme.primary;
+        return colors.primary;
       case GpsNoticeType.success:
-        return const Color(0xFF15803D);
+        return colors.success;
       case GpsNoticeType.warning:
-        return const Color(0xFFB45309);
+        return colors.warning;
       case GpsNoticeType.error:
-        return const Color(0xFFB91C1C);
+        return colors.error;
     }
   }
 
@@ -91,6 +103,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
 
   Widget statusRow() {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,12 +145,29 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
               Text(
                 widget.message,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AiVieTheme.muted,
+                  color: colors.muted,
                 ),
               ),
             ],
           ),
         ),
+        if (widget.onClearPlace != null && widget.config.hasCenter) ...[
+          const SizedBox(width: 8),
+          if (MediaQuery.sizeOf(context).width >= 600)
+            TextButton.icon(
+              onPressed: widget.busy ? null : widget.onClearPlace,
+              style: TextButton.styleFrom(foregroundColor: colors.error),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Xóa địa điểm'),
+            )
+          else
+            IconButton(
+              tooltip: 'Xóa địa điểm',
+              onPressed: widget.busy ? null : widget.onClearPlace,
+              color: colors.error,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+        ],
         if (widget.draggable && hasContent) ...[
           const SizedBox(width: 4),
           IconButton(
@@ -149,7 +179,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
               progress >= 0.5
                   ? Icons.keyboard_arrow_down_rounded
                   : Icons.keyboard_arrow_up_rounded,
-              color: AiVieTheme.muted,
+              color: colors.muted,
             ),
           ),
         ],
@@ -159,6 +189,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
 
   Widget content() {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -170,7 +201,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                 ? 'Phạm vi chấm công: '
                       '${gpsMetersText(widget.config.radiusMeters)} m'
                 : 'Chưa thiết lập địa điểm chấm công.',
-            style: theme.textTheme.bodySmall?.copyWith(color: AiVieTheme.muted),
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -199,8 +230,8 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
             child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
               childrenPadding: const EdgeInsets.only(bottom: 4),
-              iconColor: AiVieTheme.muted,
-              collapsedIconColor: AiVieTheme.muted,
+              iconColor: colors.muted,
+              collapsedIconColor: colors.muted,
               title: Text(
                 'Xem chi tiết',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -214,7 +245,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                   child: Text(
                     widget.details!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AiVieTheme.muted,
+                      color: colors.muted,
                       height: 1.5,
                     ),
                   ),
@@ -229,14 +260,16 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
+
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
-      side: const BorderSide(color: AiVieTheme.border),
+      side: BorderSide(color: colors.border),
     );
 
     if (!widget.draggable) {
       return Material(
-        color: Colors.white,
+        color: colors.surface,
         shape: shape,
         clipBehavior: Clip.antiAlias,
         child: Padding(
@@ -270,7 +303,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
         : const Duration(milliseconds: 220);
 
     return Material(
-      color: Colors.white,
+      color: colors.surface,
       shape: shape,
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -306,13 +339,11 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD1D5DB),
+                      color: colors.borderStrong,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Phần đầu tự lấy chiều cao theo nội dung.
                   statusRow(),
                 ],
               ),
@@ -323,8 +354,6 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
               child: AnimatedContainer(
                 duration: animationDuration,
                 curve: Curves.easeOutCubic,
-
-                // Chỉ phần mở rộng thay đổi chiều cao.
                 height: expandedHeight * progress,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

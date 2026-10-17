@@ -1,0 +1,1 @@
+void applyBrowserTheme(bool dark) {}
