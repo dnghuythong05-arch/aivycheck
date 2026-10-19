@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../theme/app_theme.dart';
 
 Future<TimeOfDay?> showFlexibleTimePicker({
@@ -26,15 +27,12 @@ class _TimePickerDialog extends StatefulWidget {
 
 class _TimePickerDialogState extends State<_TimePickerDialog> {
   final formKey = GlobalKey<FormState>();
-
   late int hour;
   late int minute;
-
   late final TextEditingController hourText;
   late final TextEditingController minuteText;
   late final FixedExtentScrollController hourWheel;
   late final FixedExtentScrollController minuteWheel;
-
   bool entering = false;
 
   String two(int value) => value.toString().padLeft(2, '0');
@@ -42,13 +40,10 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
   @override
   void initState() {
     super.initState();
-
     hour = widget.initialTime.hour;
     minute = widget.initialTime.minute;
-
     hourText = TextEditingController(text: two(hour));
     minuteText = TextEditingController(text: two(minute));
-
     hourWheel = FixedExtentScrollController(initialItem: hour);
     minuteWheel = FixedExtentScrollController(initialItem: minute);
   }
@@ -59,53 +54,36 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
     minuteText.dispose();
     hourWheel.dispose();
     minuteWheel.dispose();
-
     super.dispose();
   }
 
   bool readInput() {
-    if (!formKey.currentState!.validate()) return false;
-
+    if (!(formKey.currentState?.validate() ?? false)) return false;
     hour = int.parse(hourText.text);
     minute = int.parse(minuteText.text);
-
     return true;
   }
 
   void readWheels() {
-    if (hourWheel.hasClients) {
-      hour = hourWheel.selectedItem % 24;
-    }
-
-    if (minuteWheel.hasClients) {
-      minute = minuteWheel.selectedItem % 60;
-    }
+    if (hourWheel.hasClients) hour = hourWheel.selectedItem % 24;
+    if (minuteWheel.hasClients) minute = minuteWheel.selectedItem % 60;
   }
 
   void changeMode() {
     if (entering) {
       if (!readInput()) return;
-
       FocusScope.of(context).unfocus();
       setState(() => entering = false);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-
-        if (hourWheel.hasClients) {
-          hourWheel.jumpToItem(hour);
-        }
-
-        if (minuteWheel.hasClients) {
-          minuteWheel.jumpToItem(minute);
-        }
+        if (hourWheel.hasClients) hourWheel.jumpToItem(hour);
+        if (minuteWheel.hasClients) minuteWheel.jumpToItem(minute);
       });
     } else {
       readWheels();
-
       hourText.text = two(hour);
       minuteText.text = two(minute);
-
       setState(() => entering = true);
     }
   }
@@ -116,13 +94,10 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
     } else {
       readWheels();
     }
-
     Navigator.pop(context, TimeOfDay(hour: hour, minute: minute));
   }
 
   Widget input(TextEditingController controller, String label, int maximum) {
-    final typography = Theme.of(context).textTheme;
-
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
@@ -131,18 +106,13 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
       autocorrect: false,
       enableSuggestions: false,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: typography.headlineSmall?.copyWith(
-        fontSize: 28,
-        fontWeight: FontWeight.w500,
-      ),
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 28),
       decoration: InputDecoration(labelText: label, counterText: ''),
       validator: (value) {
         final number = int.tryParse(value ?? '');
-
         if (number == null || number < 0 || number > maximum) {
           return '0–$maximum';
         }
-
         return null;
       },
     );
@@ -154,14 +124,11 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
     required FixedExtentScrollController controller,
     required ValueChanged<int> onChanged,
   }) {
-    final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
 
     return Column(
       children: [
-        Text(
-          label,
-          style: typography.bodyMedium?.copyWith(color: AiVieTheme.muted),
-        ),
+        Text(label, style: AiVieTheme.secondary(context)),
         const SizedBox(height: 8),
         Expanded(
           child: CupertinoPicker(
@@ -175,7 +142,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: AiVieTheme.primary.withValues(alpha: 0.06),
+                  color: colors.primarySoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -186,10 +153,9 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
               (index) => Center(
                 child: Text(
                   two(index),
-                  style: typography.headlineSmall?.copyWith(
-                    fontSize: 27,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontSize: 27),
                 ),
               ),
             ),
@@ -201,15 +167,22 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final typography = theme.textTheme;
+    final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
+    final separatorStyle = typography.bodyLarge?.copyWith(
+      fontSize: 24,
+      color: colors.muted,
+    );
 
     return AlertDialog(
       scrollable: true,
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colors.border),
+      ),
       titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
       contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
@@ -228,12 +201,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
                     Expanded(child: input(hourText, 'Giờ', 23)),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(10, 16, 10, 0),
-                      child: Text(
-                        ':',
-                        style: typography.headlineSmall?.copyWith(
-                          color: AiVieTheme.muted,
-                        ),
-                      ),
+                      child: Text(':', style: separatorStyle),
                     ),
                     Expanded(child: input(minuteText, 'Phút', 59)),
                   ],
@@ -252,12 +220,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
                         onChanged: (value) => hour = value,
                       ),
                     ),
-                    Text(
-                      ':',
-                      style: typography.headlineSmall?.copyWith(
-                        color: AiVieTheme.muted,
-                      ),
-                    ),
+                    Text(':', style: separatorStyle),
                     Expanded(
                       child: wheel(
                         label: 'Phút',

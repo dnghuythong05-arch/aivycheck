@@ -16,10 +16,8 @@ class FaceRegistrationDialog extends StatefulWidget {
 
 class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
   Set<String> registeredIds = {};
-
   bool loading = true;
   bool busy = false;
-
   String? message;
 
   @override
@@ -31,7 +29,6 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
   Future<void> loadFaces() async {
     try {
       final ids = await widget.session.registeredIds();
-
       if (!mounted) return;
 
       setState(() {
@@ -40,7 +37,6 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
       });
     } catch (_) {
       if (!mounted) return;
-
       setState(() {
         loading = false;
         message = 'Chưa đọc được dữ liệu khuôn mặt. Hãy đóng và mở lại.';
@@ -60,7 +56,6 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
 
     try {
       final error = await widget.session.registerFace(user.id);
-
       if (!mounted) return;
 
       if (error != null) {
@@ -70,7 +65,6 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
 
       saved = true;
       final ids = await widget.session.registeredIds();
-
       if (!mounted) return;
 
       setState(() {
@@ -82,7 +76,6 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
       });
     } catch (_) {
       if (!mounted) return;
-
       setState(() {
         message = saved
             ? 'Đã lưu thay đổi nhưng chưa cập nhật được trạng thái. '
@@ -90,13 +83,12 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
             : 'Chưa xử lý được khuôn mặt. Hãy thử lại.';
       });
     } finally {
-      if (mounted) {
-        setState(() => busy = false);
-      }
+      if (mounted) setState(() => busy = false);
     }
   }
 
   Widget accountTile(AppUser user) {
+    final colors = AiVieTheme.of(context);
     final tile = FaceAccountTile(
       user: user,
       registered: registeredIds.contains(user.id),
@@ -108,9 +100,9 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F3FF),
+        color: colors.purpleSoft,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFC4B5FD), width: 1.5),
+        border: Border.all(color: colors.purpleBorder, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -154,27 +146,26 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
   @override
   Widget build(BuildContext context) {
     final admin = widget.session.currentUser;
-
     final users = [if (admin != null) admin, ...widget.session.employees];
-
-    final textTheme = Theme.of(context).textTheme;
+    final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
 
     return PopScope(
       canPop: !busy,
       child: AlertDialog(
         scrollable: true,
-        backgroundColor: AiVieTheme.background,
+        backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         insetPadding: const EdgeInsets.all(24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AiVieTheme.border),
+          side: BorderSide(color: colors.border),
         ),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
         contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
         actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-        title: Text('Đăng ký khuôn mặt', style: textTheme.titleLarge),
+        title: Text('Đăng ký khuôn mặt', style: typography.titleLarge),
         content: SizedBox(
           width: 520,
           child: Column(
@@ -182,8 +173,8 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Chọn tài khoản để xem hoặc chỉnh danh sách ảnh đăng ký. ',
-                style: textTheme.bodyMedium?.copyWith(color: AiVieTheme.muted),
+                'Chọn tài khoản để xem hoặc chỉnh danh sách ảnh đăng ký.',
+                style: AiVieTheme.secondary(context),
               ),
               const SizedBox(height: 20),
               if (loading)
@@ -200,7 +191,12 @@ class _FaceRegistrationDialogState extends State<FaceRegistrationDialog> {
               ],
               if (message != null) ...[
                 const SizedBox(height: 12),
-                Text(message!, style: textTheme.bodyMedium),
+                Text(
+                  message!,
+                  style: typography.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ],
           ),

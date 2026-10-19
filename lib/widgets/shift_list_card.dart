@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
@@ -9,7 +10,6 @@ class ShiftListCard extends StatelessWidget {
   final bool selected;
   final bool canManage;
   final bool canAttend;
-
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onSelect;
@@ -31,6 +31,7 @@ class ShiftListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
     final completed = record?.checkOut != null;
     final working = record != null && !completed;
     final showSelection = selected && canAttend;
@@ -42,16 +43,16 @@ class ShiftListCard extends StatelessWidget {
         : 'Chưa chấm công';
 
     final statusColor = completed
-        ? const Color(0xFF15803D)
+        ? colors.success
         : working
-        ? const Color(0xFFB45309)
-        : AiVieTheme.muted;
+        ? colors.warning
+        : colors.muted;
 
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: showSelection ? AiVieTheme.primary : AiVieTheme.border,
+          color: showSelection ? colors.primary : colors.border,
           width: showSelection ? 2 : 1,
         ),
       ),
@@ -69,30 +70,30 @@ class ShiftListCard extends StatelessWidget {
                   IconButton(
                     onPressed: onEdit,
                     tooltip: 'Chỉnh ca',
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.edit_outlined,
                       size: 20,
-                      color: AiVieTheme.muted,
+                      color: colors.muted,
                     ),
                   ),
                   IconButton(
                     onPressed: onDelete,
                     tooltip: 'Xóa ca',
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.delete_outline_rounded,
                       size: 22,
-                      color: Color(0xFFDC2626),
+                      color: colors.error,
                     ),
                   ),
                 ],
               ],
             ),
             const SizedBox(height: 8),
-            Text(formatShiftRange(shift), style: typography.titleMedium),
+            Text(formatShiftRange(shift), style: typography.bodyLarge),
             const SizedBox(height: 4),
             Text(
               formatAttendanceDate(shift.start),
-              style: typography.bodyMedium?.copyWith(color: AiVieTheme.muted),
+              style: AiVieTheme.secondary(context),
             ),
             const SizedBox(height: 16),
             Align(
@@ -130,12 +131,10 @@ class ShiftListCard extends StatelessWidget {
                 ),
                 label: Text(selected ? 'Đang chọn' : 'Chọn ca làm'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AiVieTheme.primary,
-                  disabledForegroundColor: AiVieTheme.primary,
-                  backgroundColor: selected
-                      ? AiVieTheme.primary.withValues(alpha: 0.06)
-                      : null,
-                  side: const BorderSide(color: AiVieTheme.primary),
+                  foregroundColor: colors.primary,
+                  disabledForegroundColor: colors.primary,
+                  backgroundColor: selected ? colors.primarySoft : null,
+                  side: BorderSide(color: colors.primary),
                 ),
               ),
               const SizedBox(height: 12),

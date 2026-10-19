@@ -17,16 +17,15 @@ class FaceAccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
 
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AiVieTheme.border),
+        side: BorderSide(color: colors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -37,23 +36,23 @@ class FaceAccountTile extends StatelessWidget {
               user.fullName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: typography.titleMedium,
             ),
             const SizedBox(height: 4),
             Text(
               '${user.username} · ${user.roleLabel}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyMedium?.copyWith(color: AiVieTheme.muted),
+              style: AiVieTheme.secondary(context),
             ),
             const SizedBox(height: 12),
             Text(
               registered ? 'Đã có mẫu khuôn mặt' : 'Chưa có mẫu khuôn mặt',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyMedium,
+              style: typography.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

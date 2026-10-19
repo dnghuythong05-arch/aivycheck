@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/app_user.dart';
 import '../models/attendance_session.dart';
 import '../theme/app_theme.dart';
@@ -30,7 +31,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             EmployeeEditorScreen(session: widget.session, initialUser: user),
       ),
     );
-
     if (mounted) setState(() {});
   }
 
@@ -42,26 +42,17 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             EmployeeDetailsScreen(session: widget.session.forEmployee(user.id)),
       ),
     );
-
     if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (!widget.session.isAdmin) {
       return Scaffold(
         body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Chỉ Admin được mở mục này.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AiVieTheme.muted,
-              ),
-            ),
+          child: Text(
+            'Chỉ Admin được mở mục này.',
+            style: AiVieTheme.secondary(context),
           ),
         ),
       );
@@ -104,15 +95,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 Expanded(
                   child: users.isEmpty
                       ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              'Chưa có nhân viên.',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AiVieTheme.muted,
-                              ),
-                            ),
+                          child: Text(
+                            'Chưa có nhân viên.',
+                            style: AiVieTheme.secondary(context),
                           ),
                         )
                       : ListView.separated(
@@ -122,7 +107,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                               const SizedBox(height: 12),
                           itemBuilder: (_, index) {
                             final user = users[index];
-
                             return EmployeeAccountCard(
                               user: user,
                               onOpen: () => openEmployee(user),

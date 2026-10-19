@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/app_user.dart';
 import '../models/attendance_session.dart';
 import '../theme/app_theme.dart';
@@ -20,7 +21,6 @@ class EmployeeEditorScreen extends StatefulWidget {
 
 class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
   final formKey = GlobalKey<FormState>();
-
   late final TextEditingController nameController;
   late final TextEditingController usernameController;
   late final TextEditingController emailController;
@@ -33,9 +33,7 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
   @override
   void initState() {
     super.initState();
-
     final user = widget.initialUser;
-
     nameController = TextEditingController(text: user?.fullName ?? '');
     usernameController = TextEditingController(text: user?.username ?? '');
     emailController = TextEditingController(text: user?.email ?? '');
@@ -52,7 +50,6 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
 
   Future<void> save() async {
     if (busy || !formKey.currentState!.validate()) return;
-
     setState(() {
       busy = true;
       error = null;
@@ -67,7 +64,6 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
     );
 
     if (!mounted) return;
-
     if (message != null) {
       setState(() {
         busy = false;
@@ -75,17 +71,16 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
       });
       return;
     }
-
     Navigator.pop(context, true);
   }
 
-  String? requiredText(String? value) {
-    return value == null || value.trim().isEmpty ? 'Hãy nhập thông tin.' : null;
-  }
+  String? requiredText(String? value) =>
+      value == null || value.trim().isEmpty ? 'Hãy nhập thông tin.' : null;
 
   @override
   Widget build(BuildContext context) {
     final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
     final editing = widget.initialUser != null;
 
     return Scaffold(
@@ -137,13 +132,15 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Email',
                             ),
-                            validator: (value) =>
-                                value == null ||
-                                    !RegExp(
-                                      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                                    ).hasMatch(value.trim())
-                                ? 'Hãy nhập email hợp lệ.'
-                                : null,
+                            validator: (value) {
+                              if (value == null ||
+                                  !RegExp(
+                                    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                  ).hasMatch(value.trim())) {
+                                return 'Hãy nhập email hợp lệ.';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 20),
                           TextFormField(
@@ -160,11 +157,9 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
                                 tooltip: obscurePassword
                                     ? 'Hiện mật khẩu'
                                     : 'Ẩn mật khẩu',
-                                onPressed: () {
-                                  setState(() {
-                                    obscurePassword = !obscurePassword;
-                                  });
-                                },
+                                onPressed: () => setState(() {
+                                  obscurePassword = !obscurePassword;
+                                }),
                                 icon: Icon(
                                   obscurePassword
                                       ? Icons.visibility_outlined
@@ -184,16 +179,15 @@ class _EmployeeEditorScreenState extends State<EmployeeEditorScreen> {
                           ),
                           Text(
                             'Vai trò: Nhân viên',
-                            style: typography.bodyMedium?.copyWith(
-                              color: AiVieTheme.muted,
-                            ),
+                            style: AiVieTheme.secondary(context),
                           ),
                           if (error != null) ...[
                             const SizedBox(height: 16),
                             Text(
                               error!,
                               style: typography.bodyMedium?.copyWith(
-                                color: const Color(0xFFB91C1C),
+                                color: colors.error,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

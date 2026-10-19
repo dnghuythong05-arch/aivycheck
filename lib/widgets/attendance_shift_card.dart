@@ -9,7 +9,6 @@ class AttendanceShiftCard extends StatelessWidget {
   final AttendanceRecord? record;
   final DateTime now;
   final bool busy;
-
   final VoidCallback onAttendance;
   final VoidCallback onOpenSchedule;
   final VoidCallback? onRegisterFace;
@@ -27,14 +26,11 @@ class AttendanceShiftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final typography = Theme.of(context).textTheme;
     final colors = AiVieTheme.of(context);
-
     final currentShift = shift;
     final currentRecord = record;
-
     final working = currentRecord != null && currentRecord.checkOut == null;
-
     final completed = currentRecord?.checkOut != null;
 
     final buttonLabel = busy
@@ -54,25 +50,23 @@ class AttendanceShiftCard extends StatelessWidget {
           children: [
             Text(
               'Ca đang chọn',
-              style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+              style: AiVieTheme.secondary(context, fontSize: 12),
             ),
             const SizedBox(height: 8),
             Text(
               currentShift?.name ?? 'Chưa chọn ca làm',
-              style: theme.textTheme.titleLarge,
+              style: typography.titleLarge,
             ),
             if (currentShift != null) ...[
               const SizedBox(height: 12),
               Text(
                 formatShiftRange(currentShift),
-                style: theme.textTheme.headlineSmall,
+                style: typography.headlineSmall,
               ),
               const SizedBox(height: 4),
               Text(
                 formatAttendanceDate(currentShift.start),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.muted,
-                ),
+                style: AiVieTheme.secondary(context),
               ),
             ],
             const SizedBox(height: 20),
@@ -83,25 +77,21 @@ class AttendanceShiftCard extends StatelessWidget {
                 currentShift == null
                     ? 'Mở Lịch làm để chọn ca được giao.'
                     : 'Bạn chưa chấm công ca này.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.muted,
-                ),
+                style: AiVieTheme.secondary(context),
               )
             else ...[
               Text(
                 working ? 'Đang làm việc' : 'Đã hoàn thành ca',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colors.success,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: typography.titleMedium?.copyWith(color: colors.success),
               ),
               const SizedBox(height: 6),
               Text(
                 currentRecord.isLate
                     ? 'Đi trễ: ${currentRecord.lateAmountText}'
                     : 'Đúng giờ',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: typography.bodyMedium?.copyWith(
                   color: currentRecord.isLate ? colors.warning : colors.success,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 18),
@@ -123,7 +113,7 @@ class AttendanceShiftCard extends StatelessWidget {
               const SizedBox(height: 18),
               Text(
                 currentRecord.workTimeText(now),
-                style: theme.textTheme.titleMedium,
+                style: typography.titleMedium,
               ),
             ],
             const SizedBox(height: 24),
@@ -170,22 +160,11 @@ class _AttendanceTimeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = AiVieTheme.of(context);
-
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
-          ),
-        ),
+        Expanded(child: Text(label, style: AiVieTheme.secondary(context))),
         const SizedBox(width: 12),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(color: colors.text),
-        ),
+        Text(value, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }

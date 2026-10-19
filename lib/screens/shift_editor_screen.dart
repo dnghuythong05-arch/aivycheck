@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
@@ -25,21 +26,18 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
   late DateTime date;
   late TimeOfDay startTime;
   late TimeOfDay endTime;
-
   bool endsNextDay = false;
   String? timeError;
 
   @override
   void initState() {
     super.initState();
-
     final initial = widget.initialShift;
     final now = DateTime.now();
     final start = initial?.start ?? now;
     final end = initial?.end ?? now.add(const Duration(hours: 1));
 
     nameController = TextEditingController(text: initial?.name ?? '');
-
     date = DateTime(start.year, start.month, start.day);
     startTime = TimeOfDay.fromDateTime(start);
     endTime = TimeOfDay.fromDateTime(end);
@@ -64,7 +62,6 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
     );
 
     if (!mounted || picked == null) return;
-
     setState(() {
       date = picked;
       timeError = null;
@@ -79,22 +76,19 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
     );
 
     if (!mounted || picked == null) return;
-
     setState(() {
       if (isStart) {
         startTime = picked;
       } else {
         endTime = picked;
       }
-
       timeError = null;
     });
   }
 
-  String timeText(TimeOfDay time) {
-    return '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}';
-  }
+  String timeText(TimeOfDay time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 
   void save() {
     if (!formKey.currentState!.validate()) return;
@@ -106,7 +100,6 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
       startTime.hour,
       startTime.minute,
     );
-
     final end = DateTime(
       date.year,
       date.month,
@@ -138,6 +131,7 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
     final editing = widget.initialShift != null;
 
     return Scaffold(
@@ -215,8 +209,9 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
                                     const SizedBox(height: 4),
                                     Text(
                                       'Bật khi ca đi qua 00:00.',
-                                      style: typography.bodySmall?.copyWith(
-                                        color: AiVieTheme.muted,
+                                      style: AiVieTheme.secondary(
+                                        context,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
@@ -225,12 +220,10 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
                               const SizedBox(width: 12),
                               Switch.adaptive(
                                 value: endsNextDay,
-                                onChanged: (value) {
-                                  setState(() {
-                                    endsNextDay = value;
-                                    timeError = null;
-                                  });
-                                },
+                                onChanged: (value) => setState(() {
+                                  endsNextDay = value;
+                                  timeError = null;
+                                }),
                               ),
                             ],
                           ),
@@ -239,7 +232,8 @@ class _ShiftEditorScreenState extends State<ShiftEditorScreen> {
                             Text(
                               timeError!,
                               style: typography.bodyMedium?.copyWith(
-                                color: const Color(0xFFB91C1C),
+                                color: colors.error,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

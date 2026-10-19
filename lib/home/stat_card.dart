@@ -23,17 +23,11 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AiVieTheme.of(context);
+    final typography = Theme.of(context).textTheme;
 
     return Expanded(
       child: Card(
-        margin: EdgeInsets.zero,
         color: backgroundColor,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: colors.border),
-        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -46,11 +40,7 @@ class StatCard extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: colors.text,
-                      ),
+                      style: typography.bodyMedium,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -73,9 +63,8 @@ class StatCard extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     value,
-                    style: TextStyle(
+                    style: typography.headlineSmall?.copyWith(
                       fontSize: 28,
-                      fontWeight: FontWeight.w600,
                       color: colors.text,
                     ),
                   ),
@@ -86,7 +75,7 @@ class StatCard extends StatelessWidget {
                 note,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: colors.muted),
+                style: AiVieTheme.secondary(context, fontSize: 13),
               ),
             ],
           ),

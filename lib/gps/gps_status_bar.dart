@@ -12,11 +12,9 @@ class GpsStatusBar extends StatefulWidget {
   final String message;
   final String? details;
   final GpsNoticeType noticeType;
-
   final bool busy;
   final bool showActions;
   final bool draggable;
-
   final VoidCallback? onOpenSettings;
   final VoidCallback? onRetry;
   final VoidCallback? onClearPlace;
@@ -44,17 +42,11 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
   double progress = 0;
   bool dragging = false;
 
-  bool get hasDetails {
-    return widget.details?.trim().isNotEmpty == true;
-  }
-
-  bool get hasContent {
-    return widget.showActions || hasDetails;
-  }
+  bool get hasDetails => widget.details?.trim().isNotEmpty == true;
+  bool get hasContent => widget.showActions || hasDetails;
 
   Color get color {
     final colors = AiVieTheme.of(context);
-
     switch (widget.noticeType) {
       case GpsNoticeType.info:
         return colors.primary;
@@ -90,7 +82,6 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
   void finishDrag(double velocity) {
     setState(() {
       dragging = false;
-
       if (velocity < -250) {
         progress = 1;
       } else if (velocity > 250) {
@@ -102,8 +93,8 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
   }
 
   Widget statusRow() {
-    final theme = Theme.of(context);
     final colors = AiVieTheme.of(context);
+    final typography = Theme.of(context).textTheme;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,18 +127,13 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
             children: [
               Text(
                 widget.title,
-                style: theme.textTheme.bodyLarge?.copyWith(
+                style: typography.bodyLarge?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                widget.message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.muted,
-                ),
-              ),
+              Text(widget.message, style: AiVieTheme.secondary(context)),
             ],
           ),
         ),
@@ -201,7 +187,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                 ? 'Phạm vi chấm công: '
                       '${gpsMetersText(widget.config.radiusMeters)} m'
                 : 'Chưa thiết lập địa điểm chấm công.',
-            style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+            style: AiVieTheme.secondary(context, fontSize: 12),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -234,7 +220,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
               collapsedIconColor: colors.muted,
               title: Text(
                 'Xem chi tiết',
-                style: theme.textTheme.bodySmall?.copyWith(
+                style: theme.textTheme.labelMedium?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w500,
                 ),
@@ -244,10 +230,10 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     widget.details!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.muted,
-                      height: 1.5,
-                    ),
+                    style: AiVieTheme.secondary(
+                      context,
+                      fontSize: 12,
+                    ).copyWith(height: 1.5),
                   ),
                 ),
               ],
@@ -261,7 +247,6 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
   @override
   Widget build(BuildContext context) {
     final colors = AiVieTheme.of(context);
-
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
       side: BorderSide(color: colors.border),
@@ -287,18 +272,15 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
     }
 
     final media = MediaQuery.of(context);
-
     final availableHeight = math.max(
       0.0,
       media.size.height - media.viewInsets.bottom,
     );
-
     final expandedHeight = math.min(
       180.0,
       math.max(60.0, availableHeight * 0.22),
     );
-
-    final animationDuration = dragging || media.disableAnimations
+    final duration = dragging || media.disableAnimations
         ? Duration.zero
         : const Duration(milliseconds: 220);
 
@@ -325,9 +307,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
                   }
                 : null,
             onVerticalDragEnd: hasContent
-                ? (details) {
-                    finishDrag(details.velocity.pixelsPerSecond.dy);
-                  }
+                ? (details) => finishDrag(details.velocity.pixelsPerSecond.dy)
                 : null,
             onVerticalDragCancel: hasContent ? () => finishDrag(0) : null,
             child: Padding(
@@ -352,7 +332,7 @@ class _GpsStatusBarState extends State<GpsStatusBar> {
           if (hasContent)
             ClipRect(
               child: AnimatedContainer(
-                duration: animationDuration,
+                duration: duration,
                 curve: Curves.easeOutCubic,
                 height: expandedHeight * progress,
                 child: SingleChildScrollView(

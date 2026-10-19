@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 
 class EmployeeProfileCard extends StatelessWidget {
@@ -20,6 +21,7 @@ class EmployeeProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = AiVieTheme.of(context);
     final displayName = fullName.trim();
     final displayEmail = email.trim();
 
@@ -39,13 +41,13 @@ class EmployeeProfileCard extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AiVieTheme.primary.withValues(alpha: 0.08),
+                        color: colors.primarySoft,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person_outline_rounded,
                         size: 26,
-                        color: AiVieTheme.primary,
+                        color: colors.primary,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -56,7 +58,7 @@ class EmployeeProfileCard extends StatelessWidget {
                           Text(
                             'Họ và tên',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: AiVieTheme.muted,
+                              color: colors.muted,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -94,19 +96,19 @@ class EmployeeProfileCard extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: loggingOut ? null : onLogout,
           icon: loggingOut
-              ? const SizedBox(
+              ? SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Color(0xFFDC2626),
+                    color: colors.error,
                   ),
                 )
               : const Icon(Icons.logout_rounded, size: 20),
           label: Text(loggingOut ? 'Đang đăng xuất…' : 'Đăng xuất'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFDC2626),
-            side: const BorderSide(color: Color(0xFFFECACA)),
+            foregroundColor: colors.error,
+            side: BorderSide(color: colors.errorBorder),
           ),
         ),
       ],
@@ -128,11 +130,12 @@ class _ProfileInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typography = Theme.of(context).textTheme;
+    final colors = AiVieTheme.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 22, color: AiVieTheme.muted),
+        Icon(icon, size: 22, color: colors.muted),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -140,7 +143,7 @@ class _ProfileInfoRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: typography.bodySmall?.copyWith(color: AiVieTheme.muted),
+                style: typography.bodySmall?.copyWith(color: colors.muted),
               ),
               const SizedBox(height: 4),
               Text(

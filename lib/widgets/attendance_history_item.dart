@@ -17,12 +17,10 @@ class AttendanceHistoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final typography = Theme.of(context).textTheme;
     final colors = AiVieTheme.of(context);
-
     final shift = record.shiftSnapshot;
     final completed = record.checkOut != null;
-
     final statusColor = record.isLate ? colors.warning : colors.success;
 
     return Card(
@@ -39,9 +37,7 @@ class AttendanceHistoryItem extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(shift.name, style: theme.textTheme.titleLarge),
-                ),
+                Expanded(child: Text(shift.name, style: typography.titleLarge)),
                 if (completed && onDelete != null) ...[
                   const SizedBox(width: 12),
                   IconButton(
@@ -56,12 +52,12 @@ class AttendanceHistoryItem extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Ngày ca: ${formatAttendanceDate(shift.start)}',
-              style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
+              style: AiVieTheme.secondary(context),
             ),
             const SizedBox(height: 4),
             Text(
               'Ca làm: ${formatShiftRange(shift)}',
-              style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
+              style: AiVieTheme.secondary(context),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -80,7 +76,7 @@ class AttendanceHistoryItem extends StatelessWidget {
                   ),
                   child: Text(
                     record.statusText,
-                    style: theme.textTheme.labelMedium?.copyWith(
+                    style: typography.labelMedium?.copyWith(
                       color: statusColor,
                       fontWeight: FontWeight.w600,
                     ),
@@ -88,8 +84,9 @@ class AttendanceHistoryItem extends StatelessWidget {
                 ),
                 Text(
                   completed ? 'Đã hoàn thành' : 'Đang làm',
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  style: typography.bodySmall?.copyWith(
                     color: colors.muted,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -133,26 +130,17 @@ class _HistoryTimeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final typography = Theme.of(context).textTheme;
-    final colors = AiVieTheme.of(context);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: typography.bodyMedium?.copyWith(color: colors.muted),
-          ),
-        ),
+        Expanded(child: Text(label, style: AiVieTheme.secondary(context))),
         const SizedBox(width: 16),
         Expanded(
           flex: 2,
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: typography.bodyMedium?.copyWith(
-              color: colors.text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
             ),
           ),

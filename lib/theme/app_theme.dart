@@ -142,32 +142,34 @@ class AiVieColors extends ThemeExtension<AiVieColors> {
 }
 
 class AiVieTheme {
-  // Giữ các hằng cũ để những phần chưa chuyển màu vẫn chạy được.
   static const background = Color(0xFFF7F8FA);
   static const primary = Color(0xFF2563EB);
   static const text = Color(0xFF1F2937);
   static const muted = Color(0xFF6B7280);
   static const border = Color(0xFFE5E7EB);
-
-  static const double contentWidth = 1120;
   static const action = Color(0xFF2563EB);
+  static const double contentWidth = 1120;
 
   static AiVieColors of(BuildContext context) {
     final theme = Theme.of(context);
-
     return theme.extension<AiVieColors>() ??
         (theme.brightness == Brightness.dark
             ? AiVieColors.dark
             : AiVieColors.light);
   }
 
-  static ThemeData get light {
-    return _build(Brightness.light, AiVieColors.light);
+  // Kiểu dùng chung cho toàn bộ chữ phụ.
+  static TextStyle secondary(BuildContext context, {double? fontSize}) {
+    return Theme.of(context).textTheme.bodyMedium!.copyWith(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w400,
+      color: of(context).muted,
+    );
   }
 
-  static ThemeData get dark {
-    return _build(Brightness.dark, AiVieColors.dark);
-  }
+  static ThemeData get light => _build(Brightness.light, AiVieColors.light);
+
+  static ThemeData get dark => _build(Brightness.dark, AiVieColors.dark);
 
   static ThemeData _build(Brightness brightness, AiVieColors colors) {
     final scheme =
@@ -226,15 +228,11 @@ class AiVieTheme {
                 if (states.contains(WidgetState.disabled)) {
                   return colors.text.withValues(alpha: 0.12);
                 }
-
                 return action;
               })
             : null,
         foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(WidgetState.disabled)) {
-            return colors.muted;
-          }
-
+          if (states.contains(WidgetState.disabled)) return colors.muted;
           return filled ? Colors.white : colors.primary;
         }),
         overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
@@ -269,11 +267,17 @@ class AiVieTheme {
       textTheme: GoogleFonts.interTextTheme(base.textTheme)
           .apply(bodyColor: colors.text, displayColor: colors.text)
           .copyWith(
+            displayLarge: type(57, FontWeight.w600, height: 1.2),
+            displayMedium: type(45, FontWeight.w600, height: 1.2),
+            displaySmall: type(36, FontWeight.w600, height: 1.2),
+            headlineLarge: type(32, FontWeight.w600, height: 1.3),
+            headlineMedium: type(28, FontWeight.w600, height: 1.3),
             headlineSmall: type(24, FontWeight.w600, height: 1.3),
             titleLarge: type(20, FontWeight.w600, height: 1.3),
-            titleMedium: type(16, FontWeight.w500, height: 1.3),
-            bodyLarge: type(15, FontWeight.w400, height: 1.5),
-            bodyMedium: type(14, FontWeight.w400, height: 1.5),
+            titleMedium: type(16, FontWeight.w600, height: 1.3),
+            titleSmall: type(14, FontWeight.w600, height: 1.3),
+            bodyLarge: type(15, FontWeight.w500, height: 1.5),
+            bodyMedium: type(14, FontWeight.w500, height: 1.5),
             bodySmall: type(12, FontWeight.w400),
             labelLarge: type(14, FontWeight.w500),
             labelMedium: type(12, FontWeight.w500),
@@ -321,8 +325,10 @@ class AiVieTheme {
           horizontal: 16,
           vertical: 16,
         ),
-        labelStyle: TextStyle(fontSize: 14, color: colors.muted),
-        hintStyle: TextStyle(color: colors.muted),
+        labelStyle: type(14, FontWeight.w500).copyWith(color: colors.muted),
+        hintStyle: type(14, FontWeight.w400).copyWith(color: colors.muted),
+        helperStyle: type(12, FontWeight.w400).copyWith(color: colors.muted),
+        errorStyle: type(12, FontWeight.w600).copyWith(color: colors.error),
         prefixIconColor: colors.muted,
         suffixIconColor: colors.muted,
         border: inputBorder(colors.border),
@@ -336,7 +342,10 @@ class AiVieTheme {
       bottomSheetTheme: BottomSheetThemeData(backgroundColor: colors.surface),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.text,
-        contentTextStyle: TextStyle(color: colors.background),
+        contentTextStyle: type(
+          14,
+          FontWeight.w500,
+        ).copyWith(color: colors.background),
       ),
     );
   }

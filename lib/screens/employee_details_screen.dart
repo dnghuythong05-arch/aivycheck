@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../models/attendance_record.dart';
 import '../models/attendance_session.dart';
 import '../theme/app_theme.dart';
@@ -23,11 +25,8 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
   @override
   void initState() {
     super.initState();
-
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() => now = DateTime.now());
-      }
+      if (mounted) setState(() => now = DateTime.now());
     });
   }
 
@@ -39,31 +38,23 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
 
   Future<void> openSchedule() async {
     if (busy || !widget.session.isAdmin) return;
-
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ScheduleScreen(session: widget.session),
       ),
     );
-
     if (mounted) setState(() {});
   }
 
   Future<void> deleteRecord(AttendanceRecord record) async {
     if (busy || !widget.session.isAdmin) return;
-
     setState(() => busy = true);
 
     try {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
           title: const Text('Xóa lượt chấm công?'),
           content: Text(
             'Nhân viên: ${widget.session.account!.fullName}\n'
@@ -78,8 +69,8 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                foregroundColor: Theme.of(dialogContext).colorScheme.onError,
               ),
               child: const Text('Xóa'),
             ),
@@ -88,26 +79,26 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
       );
 
       if (!mounted || confirmed != true) return;
-
       final error = await widget.session.deleteRecord(record.shiftId);
-
       if (!mounted) return;
 
       setState(() {});
+      final colors = AiVieTheme.of(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ?? 'Đã xóa lượt chấm công.'),
-          backgroundColor: error == null
-              ? const Color(0xFF15803D)
-              : const Color(0xFFB91C1C),
+          content: Text(
+            error ?? 'Đã xóa lượt chấm công.',
+            style: TextStyle(
+              color: error == null ? colors.success : colors.error,
+            ),
+          ),
+          backgroundColor: colors.surface,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => busy = false);
-      }
+      if (mounted) setState(() => busy = false);
     }
   }
 
@@ -136,12 +127,7 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      user.email,
-                      style: typography.bodyMedium?.copyWith(
-                        color: AiVieTheme.muted,
-                      ),
-                    ),
+                    Text(user.email, style: AiVieTheme.secondary(context)),
                     const SizedBox(height: 8),
                     Text(
                       'Đã giao ${widget.session.shifts.length} ca',

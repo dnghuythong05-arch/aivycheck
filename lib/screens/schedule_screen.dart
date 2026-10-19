@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/attendance_session.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
@@ -20,11 +21,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AiVieTheme.text,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -42,10 +39,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
 
     if (!mounted || result == null) return;
-
     setState(() => busy = true);
     final error = await widget.session.saveShift(result);
-
     if (!mounted) return;
 
     setState(() => busy = false);
@@ -58,9 +53,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text('Xóa ca làm?'),
         content: Text('Xóa ca “${shift.name}”?'),
         actions: [
@@ -71,8 +63,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
             ),
             child: const Text('Xóa'),
           ),
@@ -81,10 +73,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
 
     if (!mounted || confirmed != true) return;
-
     setState(() => busy = true);
     final error = await widget.session.deleteShift(shift.id);
-
     if (!mounted) return;
 
     setState(() => busy = false);
@@ -96,27 +86,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     bool openAttendance = false,
   }) async {
     if (busy) return;
-
     setState(() => busy = true);
     final error = await widget.session.selectShift(shift.id);
-
     if (!mounted) return;
 
     setState(() => busy = false);
-
     if (error != null) {
       showMessage(error);
       return;
     }
-
-    if (openAttendance) {
-      Navigator.pop<int>(context, 1);
-    }
+    if (openAttendance) Navigator.pop<int>(context, 1);
   }
 
   @override
   Widget build(BuildContext context) {
-    final typography = Theme.of(context).textTheme;
     final shifts = widget.session.shifts;
     final canManage = widget.session.isAdmin;
     final canAttend = widget.session.isOwnSession;
@@ -142,15 +125,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 if (canManage)
                   Padding(
                     padding: const EdgeInsets.all(24),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: FilledButton.icon(
-                          onPressed: busy ? null : () => editShift(),
-                          icon: const Icon(Icons.add_rounded, size: 20),
-                          label: const Text('Tạo ca làm'),
-                        ),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: FilledButton.icon(
+                        onPressed: busy ? null : () => editShift(),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: const Text('Tạo ca làm'),
                       ),
                     ),
                   ),
@@ -164,9 +144,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                   ? 'Chưa có ca. Hãy tạo ca làm.'
                                   : 'Bạn chưa được giao ca làm.',
                               textAlign: TextAlign.center,
-                              style: typography.bodyMedium?.copyWith(
-                                color: AiVieTheme.muted,
-                              ),
+                              style: AiVieTheme.secondary(context),
                             ),
                           ),
                         )

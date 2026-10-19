@@ -12,30 +12,35 @@ class EmployeeHomeScreen extends StatelessWidget {
   final WorkShift? shift;
   final AttendanceRecord? record;
   final DateTime now;
+  final String fullName;
+  final bool isAdmin;
+  final bool showSalary;
 
   final VoidCallback onOpenAttendance;
   final VoidCallback onOpenSchedule;
   final VoidCallback onOpenSalary;
   final VoidCallback onOpenProfile;
-
-  final String fullName;
+  final VoidCallback onOpenEmployees;
 
   const EmployeeHomeScreen({
     super.key,
     required this.shift,
     required this.record,
     required this.now,
+    required this.fullName,
     required this.onOpenAttendance,
     required this.onOpenSchedule,
     required this.onOpenSalary,
     required this.onOpenProfile,
-    required this.fullName,
+    required this.onOpenEmployees,
+    this.isAdmin = false,
+    this.showSalary = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = AiVieTheme.of(context);
+    final typography = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -56,29 +61,14 @@ class EmployeeHomeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Xin chào, $fullName',
-                                style: theme.textTheme.headlineSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Chúc bạn một ngày làm việc hiệu quả.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colors.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'Xin chào, $fullName',
+                      style: typography.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Chúc bạn một ngày làm việc hiệu quả.',
+                      style: AiVieTheme.secondary(context),
                     ),
                     const SizedBox(height: 24),
                     ShiftCard(shift: shift, onTap: onOpenSchedule),
@@ -132,10 +122,10 @@ class EmployeeHomeScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Thời gian hiển thị theo giờ : phút : giây',
-                      style: TextStyle(fontSize: 12, color: colors.muted),
+                      style: AiVieTheme.secondary(context, fontSize: 12),
                     ),
                     const SizedBox(height: 24),
-                    Text('Thao tác nhanh', style: theme.textTheme.titleMedium),
+                    Text('Thao tác nhanh', style: typography.titleMedium),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -154,14 +144,18 @@ class EmployeeHomeScreen extends StatelessWidget {
                           iconBackground: colors.surfaceTint,
                           onTap: onOpenSchedule,
                         ),
-                        const SizedBox(width: 12),
-                        QuickActionItem(
-                          icon: Icons.account_balance_wallet_outlined,
-                          title: 'Bảng lương',
-                          iconColor: colors.primary,
-                          iconBackground: colors.surfaceTint,
-                          onTap: onOpenSalary,
-                        ),
+                        if (isAdmin || showSalary) ...[
+                          const SizedBox(width: 12),
+                          QuickActionItem(
+                            icon: isAdmin
+                                ? Icons.people_outline_rounded
+                                : Icons.account_balance_wallet_outlined,
+                            title: isAdmin ? 'Nhân viên' : 'Bảng lương',
+                            iconColor: colors.primary,
+                            iconBackground: colors.surfaceTint,
+                            onTap: isAdmin ? onOpenEmployees : onOpenSalary,
+                          ),
+                        ],
                       ],
                     ),
                   ],

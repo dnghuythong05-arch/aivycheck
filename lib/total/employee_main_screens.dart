@@ -1,28 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:aivycheck/models/curved_bottom_nav.dart';
 
 import '../face/face_registration_dialog.dart';
-
-import '../models/attendance_record.dart';
-import '../models/attendance_session.dart';
-
 import '../gps/gps_service.dart';
 import '../gps/gps_settings_screen.dart';
 import '../gps/gps_status_bar.dart';
-
+import '../models/attendance_record.dart';
+import '../models/attendance_session.dart';
+import '../models/curved_bottom_nav.dart';
 import '../screens/attendance_screen.dart';
 import '../screens/employee_screen.dart';
-import '../screens/manage_screen.dart';
 import '../screens/history_screen.dart';
+import '../screens/manage_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/salary_screen.dart';
 import '../screens/schedule_screen.dart';
-
-import 'login_screens.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import 'login_screens.dart';
 
 class EmployeeMainScreen extends StatefulWidget {
   final AttendanceSession? session;
@@ -55,16 +51,20 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
   GpsNoticeType gpsNoticeType = GpsNoticeType.info;
 
-  int get profileIndex => session.isAdmin ? 4 : 3;
+  // Gắn với tài khoản huythong gốc bằng ID.
+  bool get canViewSalary =>
+      !session.isAdmin &&
+      session.isOwnSession &&
+      session.currentUser?.id == 'employee_huythong';
+
+  int get profileIndex => session.isAdmin || canViewSalary ? 4 : 3;
 
   bool get blocked => attendanceBusy || historyBusy;
 
   @override
   void initState() {
     super.initState();
-
     session = widget.session ?? AttendanceSession();
-
     WidgetsBinding.instance.addObserver(this);
 
     refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -79,9 +79,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   @override
   void dispose() {
     refreshTimer?.cancel();
-
     WidgetsBinding.instance.removeObserver(this);
-
     super.dispose();
   }
 
@@ -100,11 +98,9 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     try {
       await session.load();
-
       if (!mounted) return;
 
       AppHeader.setAdminVisible(session.isAdmin);
-
       setState(() => loading = false);
     } catch (_) {
       if (!mounted) return;
@@ -118,25 +114,30 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
   void feedback(String message, {bool success = false}) {
     if (!mounted) return;
+    final colors = AiVieTheme.of(context);
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message, style: const TextStyle(color: Colors.white)),
-          backgroundColor: success
-              ? const Color(0xFF15803D)
-              : const Color(0xFFB91C1C),
+          content: Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: success ? colors.success : colors.error,
+            ),
+          ),
+          backgroundColor: colors.surface,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colors.border),
           ),
         ),
       );
   }
 
   void changeTab(int index) {
-    if (blocked) return;
+    if (blocked || index < 0 || index > profileIndex) return;
 
     final enteringAttendance = index == 1 && currentIndex != 1;
 
@@ -162,8 +163,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     setState(() {
       now = DateTime.now();
-
-      if (target != null) {
+      if (target != null && target >= 0 && target <= profileIndex) {
         currentIndex = target;
       }
     });
@@ -174,18 +174,53 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   }
 
   void openSalary() {
-    if (blocked) return;
+    if (!canViewSalary) return;
+    changeTab(3);
+  }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SalaryScreen()),
-    );
+  void openEmployees() {
+    if (!session.isAdmin) return;
+    changeTab(3);
+  }
+
+  Future<void> clearPlace() async {
+    if (blocked ||
+        gpsBusy ||
+        !session.isAdmin ||
+        !session.gpsConfig.hasCenter) {
+      return;
+    }
+
+    setState(() => gpsBusy = true);
+
+    try {
+      final error = await session.clearGpsConfig();
+      if (!mounted) return;
+
+      if (error != null) {
+        feedback(error);
+        return;
+      }
+
+      setState(() {
+        gpsTitle = 'Chưa có địa điểm chấm công';
+        gpsMessage = 'Hãy mở Địa điểm chấm công để thiết lập lại.';
+        gpsDetails = null;
+        gpsNoticeType = GpsNoticeType.info;
+      });
+
+      feedback('Đã xóa địa điểm chấm công.', success: true);
+    } catch (_) {
+      if (mounted) {
+        feedback('Chưa xóa được địa điểm. Hãy thử lại.');
+      }
+    } finally {
+      if (mounted) setState(() => gpsBusy = false);
+    }
   }
 
   Future<void> openGpsSettings() async {
-    if (blocked || gpsBusy || !session.isAdmin) {
-      return;
-    }
+    if (blocked || gpsBusy || !session.isAdmin) return;
 
     await Navigator.push(
       context,
@@ -193,16 +228,13 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     );
 
     if (!mounted) return;
-
     if (currentIndex == 1) {
       unawaited(verifyGps());
     }
   }
 
   Future<void> openFaceRegistration() async {
-    if (blocked || gpsBusy || !session.isAdmin) {
-      return;
-    }
+    if (blocked || gpsBusy || !session.isAdmin) return;
 
     await showDialog<void>(
       context: context,
@@ -211,7 +243,6 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     );
 
     if (!mounted) return;
-
     setState(() => now = DateTime.now());
   }
 
@@ -228,7 +259,6 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     try {
       final result = await GpsService.check(session.gpsConfig);
-
       if (!mounted) return null;
 
       setState(() {
@@ -244,11 +274,9 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
       setState(() {
         gpsTitle = error.title;
-
         gpsMessage = error.kind == GpsFailure.notConfigured && session.isAdmin
             ? 'Hãy mở Địa điểm chấm công để thiết lập.'
             : error.message;
-
         gpsDetails = error.details;
         gpsNoticeType = error.noticeType;
       });
@@ -266,14 +294,13 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
       return null;
     } finally {
-      if (mounted) {
-        setState(() => gpsBusy = false);
-      }
+      if (mounted) setState(() => gpsBusy = false);
     }
   }
 
   Future<void> handleAttendance() async {
     if (blocked || gpsBusy) return;
+
     if (!session.gpsConfig.hasCenter) {
       await verifyGps();
       if (mounted) {
@@ -281,37 +308,48 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       }
       return;
     }
+
     if (session.selectedShift == null) {
       feedback('Hãy chọn ca được giao trong Lịch làm.');
       return;
     }
+
     if (session.selectedRecord?.checkOut != null) {
       feedback('Ca này đã hoàn thành.');
       return;
     }
+
     setState(() => attendanceBusy = true);
+
     try {
       final faceError = await session.verifyOwnFace();
       if (!mounted) return;
+
       if (faceError != null) {
         feedback(faceError);
         return;
       }
-      // Khuôn mặt đúng mới lấy vị trí mới.
+
+      // Xác minh khuôn mặt xong mới lấy vị trí mới.
       final result = await verifyGps();
       if (!mounted || result == null) return;
+
       final time = DateTime.now();
       final checkingIn = session.selectedRecord == null;
       final error = checkingIn
           ? await session.checkIn(time)
           : await session.checkOut(time);
+
       if (!mounted) return;
       setState(() => now = time);
+
       if (error != null) {
         feedback(error);
         return;
       }
+
       final record = session.selectedRecord!;
+
       feedback(
         checkingIn
             ? 'CHECK IN thành công · '
@@ -325,10 +363,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       }
     } finally {
       session.clearFaceVerification();
-
-      if (mounted) {
-        setState(() => attendanceBusy = false);
-      }
+      if (mounted) setState(() => attendanceBusy = false);
     }
   }
 
@@ -362,16 +397,12 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       if (!mounted || confirmed != true) return;
 
       final error = await session.deleteRecord(record.shiftId);
-
       if (!mounted) return;
 
       setState(() {});
-
       feedback(error ?? 'Đã xóa lượt chấm công.', success: error == null);
     } finally {
-      if (mounted) {
-        setState(() => historyBusy = false);
-      }
+      if (mounted) setState(() => historyBusy = false);
     }
   }
 
@@ -379,7 +410,6 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     if (blocked) return;
 
     session.signOut();
-
     AppHeader.setAdminVisible(false);
 
     Navigator.of(context).pushAndRemoveUntil(
@@ -413,23 +443,23 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     }
 
     final user = session.currentUser;
-
-    if (user == null) {
-      return const LoginScreen();
-    }
+    if (user == null) return const LoginScreen();
 
     final record = session.selectedRecord;
     final shift = record?.shiftSnapshot ?? session.selectedShift;
 
-    final screens = [
+    final screens = <Widget>[
       EmployeeHomeScreen(
         fullName: user.fullName,
         shift: shift,
         record: record,
         now: now,
+        isAdmin: session.isAdmin,
+        showSalary: canViewSalary,
         onOpenAttendance: () => changeTab(1),
         onOpenSchedule: openSchedule,
         onOpenSalary: openSalary,
+        onOpenEmployees: openEmployees,
         onOpenProfile: () => changeTab(profileIndex),
       ),
       AttendanceScreen(
@@ -451,6 +481,11 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       ),
       if (session.isAdmin)
         EmployeesScreen(session: session, onBackHome: () => changeTab(0)),
+      if (canViewSalary)
+        SalaryScreen(
+          employeeName: user.fullName,
+          onBackHome: () => changeTab(0),
+        ),
       ProfileScreen(
         user: user,
         onBackHome: () => changeTab(0),
@@ -487,12 +522,14 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
                     busy: gpsBusy || blocked,
                     onRetry: blocked ? null : () => verifyGps(),
                     onOpenSettings: session.isAdmin ? openGpsSettings : null,
+                    onClearPlace: session.isAdmin ? clearPlace : null,
                   ),
                 ),
               ),
             ),
           CurvedBottomNav(
             isAdmin: session.isAdmin,
+            showSalary: canViewSalary,
             selectedIndex: currentIndex,
             onDestinationSelected: changeTab,
           ),

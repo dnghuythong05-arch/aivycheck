@@ -9,20 +9,18 @@ class ShiftCard extends StatelessWidget {
 
   const ShiftCard({super.key, required this.shift, required this.onTap});
 
-  String clock(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:'
-        '${time.minute.toString().padLeft(2, '0')}';
-  }
+  String clock(DateTime time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 
-  String date(DateTime time) {
-    return '${time.day.toString().padLeft(2, '0')}/'
-        '${time.month.toString().padLeft(2, '0')}/'
-        '${time.year}';
-  }
+  String date(DateTime time) =>
+      '${time.day.toString().padLeft(2, '0')}/'
+      '${time.month.toString().padLeft(2, '0')}/${time.year}';
 
   @override
   Widget build(BuildContext context) {
     final colors = AiVieTheme.of(context);
+    final typography = Theme.of(context).textTheme;
     final selected = shift;
 
     final sameDay =
@@ -32,15 +30,7 @@ class ShiftCard extends StatelessWidget {
             selected.start.day == selected.end.day);
 
     return Card(
-      margin: EdgeInsets.zero,
       color: colors.surface,
-      elevation: 0,
-      surfaceTintColor: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.border),
-      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -57,14 +47,7 @@ class ShiftCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'Ca đang chọn',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: colors.text,
-                      ),
-                    ),
+                    child: Text('Ca đang chọn', style: typography.titleMedium),
                   ),
                   Icon(Icons.chevron_right_rounded, color: colors.muted),
                 ],
@@ -79,37 +62,25 @@ class ShiftCard extends StatelessWidget {
                       children: [
                         Text(
                           'Chưa chọn ca làm việc',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: colors.muted,
-                          ),
+                          style: AiVieTheme.secondary(context, fontSize: 16),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Bấm vào thẻ này để mở Lịch làm.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 14, color: colors.muted),
+                          style: AiVieTheme.secondary(context),
                         ),
                       ],
                     ),
                   ),
                 )
               else ...[
-                Text(
-                  selected.name,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: colors.text,
-                  ),
-                ),
+                Text(selected.name, style: typography.titleLarge),
                 const SizedBox(height: 8),
                 Text(
                   '${clock(selected.start)} – ${clock(selected.end)}',
-                  style: TextStyle(
+                  style: typography.bodyLarge?.copyWith(
                     fontSize: 22,
-                    fontWeight: FontWeight.w500,
                     color: colors.primary,
                   ),
                 ),
@@ -118,7 +89,7 @@ class ShiftCard extends StatelessWidget {
                   sameDay
                       ? date(selected.start)
                       : '${date(selected.start)} → ${date(selected.end)}',
-                  style: TextStyle(fontSize: 14, color: colors.muted),
+                  style: AiVieTheme.secondary(context),
                 ),
               ],
             ],

@@ -1,15 +1,15 @@
-import 'package:aivycheck/theme/theme_toggle_button.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/theme_toggle_button.dart';
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
-  static final ValueNotifier<bool> _adminVisible = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> _adminVisible = ValueNotifier(false);
 
   static void setAdminVisible(bool visible) {
-    if (_adminVisible.value == visible) return;
-
-    _adminVisible.value = visible;
+    if (_adminVisible.value != visible) {
+      _adminVisible.value = visible;
+    }
   }
 
   final String title;
@@ -29,6 +29,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AiVieTheme.of(context);
+    final typography = Theme.of(context).textTheme;
 
     return ValueListenableBuilder<bool>(
       valueListenable: _adminVisible,
@@ -47,8 +48,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               : IconButton(
                   tooltip: 'Quay lại',
                   onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
                   color: colors.primary,
+                  icon: const Icon(Icons.arrow_back_rounded),
                 ),
           titleSpacing: onBack == null ? 24 : 0,
           title: Column(
@@ -59,22 +60,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: colors.text,
-                ),
+                style: typography.titleLarge,
               ),
               const SizedBox(height: 3),
               Text(
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: colors.muted,
-                ),
+                style: AiVieTheme.secondary(context, fontSize: 12),
               ),
             ],
           ),
@@ -108,7 +101,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],

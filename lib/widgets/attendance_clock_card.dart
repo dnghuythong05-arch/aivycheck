@@ -22,7 +22,6 @@ class AttendanceClockCard extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Center(
               child: ConstrainedBox(
@@ -41,13 +40,11 @@ class AttendanceClockCard extends StatelessWidget {
                           handColor: colors.text,
                           primaryColor: colors.primary,
                           tickColor: colors.muted,
-                          numberStyle:
-                              (theme.textTheme.bodySmall ?? const TextStyle())
-                                  .copyWith(
-                                    color: colors.muted,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                          numberStyle: theme.textTheme.bodyMedium!.copyWith(
+                            color: colors.muted,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
@@ -56,19 +53,13 @@ class AttendanceClockCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Giờ hiện tại',
-              style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
-            ),
+            Text('Giờ hiện tại', style: AiVieTheme.secondary(context)),
             const SizedBox(height: 6),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 timeText,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.headlineSmall?.copyWith(fontSize: 30),
               ),
             ),
           ],
@@ -107,13 +98,10 @@ class _AnalogClockPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-
     final radius = size.shortestSide / 2 - 2;
-
     if (radius <= 0) return;
 
     canvas.drawCircle(center, radius, Paint()..color = faceColor);
-
     canvas.drawCircle(
       center,
       radius,
@@ -126,7 +114,6 @@ class _AnalogClockPainter extends CustomPainter {
     for (var index = 0; index < 60; index++) {
       final isHour = index % 5 == 0;
       final angle = index * math.pi / 30;
-
       final tickPaint = Paint()
         ..color = isHour ? primaryColor : tickColor.withValues(alpha: 0.6)
         ..strokeWidth = isHour ? 2 : 1
@@ -146,17 +133,16 @@ class _AnalogClockPainter extends CustomPainter {
         (hour % 12) * math.pi / 6,
       );
 
-      final textPainter = TextPainter(
+      final painter = TextPainter(
         text: TextSpan(text: '$hour', style: numberStyle),
         textDirection: TextDirection.ltr,
       )..layout();
 
-      textPainter.paint(
+      painter.paint(
         canvas,
-        position - Offset(textPainter.width / 2, textPainter.height / 2),
+        position - Offset(painter.width / 2, painter.height / 2),
       );
-
-      textPainter.dispose();
+      painter.dispose();
     }
 
     final seconds = now.second.toDouble();
@@ -170,7 +156,7 @@ class _AnalogClockPainter extends CustomPainter {
       required Color color,
       double tail = 0,
     }) {
-      final handPaint = Paint()
+      final paint = Paint()
         ..color = color
         ..strokeWidth = width
         ..strokeCap = StrokeCap.round;
@@ -178,7 +164,7 @@ class _AnalogClockPainter extends CustomPainter {
       canvas.drawLine(
         pointOnClock(center, -tail, angle),
         pointOnClock(center, length, angle),
-        handPaint,
+        paint,
       );
     }
 
@@ -189,7 +175,6 @@ class _AnalogClockPainter extends CustomPainter {
       color: handColor,
       tail: radius * 0.07,
     );
-
     drawHand(
       angle: minutes * math.pi / 30,
       length: radius * 0.67,
@@ -197,7 +182,6 @@ class _AnalogClockPainter extends CustomPainter {
       color: handColor,
       tail: radius * 0.10,
     );
-
     drawHand(
       angle: seconds * math.pi / 30,
       length: radius * 0.80,
@@ -207,7 +191,6 @@ class _AnalogClockPainter extends CustomPainter {
     );
 
     canvas.drawCircle(center, 5, Paint()..color = primaryColor);
-
     canvas.drawCircle(center, 2, Paint()..color = faceColor);
   }
 

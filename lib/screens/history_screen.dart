@@ -9,9 +9,7 @@ class HistoryScreen extends StatelessWidget {
   final List<AttendanceRecord> records;
   final DateTime now;
   final VoidCallback onBackHome;
-
   final Future<void> Function(AttendanceRecord)? onDeleteRecord;
-
   final bool busy;
   final String title;
   final String subtitle;
@@ -31,7 +29,6 @@ class HistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = AiVieTheme.of(context);
 
     return Scaffold(
@@ -59,21 +56,17 @@ class HistoryScreen extends StatelessWidget {
                             child: Text(
                               'Chưa có dữ liệu chấm công',
                               textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colors.muted,
-                              ),
+                              style: AiVieTheme.secondary(context),
                             ),
                           ),
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.all(24),
                           itemCount: records.length,
-                          separatorBuilder: (_, index) {
-                            return const SizedBox(height: 12);
-                          },
+                          separatorBuilder: (_, index) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (_, index) {
                             final record = records[index];
-
                             final canDelete =
                                 !busy &&
                                 onDeleteRecord != null &&

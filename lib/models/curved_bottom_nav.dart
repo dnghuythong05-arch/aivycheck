@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_theme.dart';
@@ -8,13 +7,19 @@ class CurvedBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final bool isAdmin;
+  final bool showSalary;
 
   const CurvedBottomNav({
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
     this.isAdmin = false,
-  }) : assert(selectedIndex >= 0 && selectedIndex < (isAdmin ? 5 : 4));
+    this.showSalary = false,
+  }) : assert(!isAdmin || !showSalary),
+       assert(
+         selectedIndex >= 0 &&
+             selectedIndex < ((isAdmin || showSalary) ? 5 : 4),
+       );
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +30,8 @@ class CurvedBottomNav extends StatelessWidget {
       const _NavItem('Chấm công', LucideIcons.calendar),
       const _NavItem('Lịch sử', LucideIcons.fileText),
       if (isAdmin) const _NavItem('Nhân viên', LucideIcons.usersRound),
+      if (!isAdmin && showSalary)
+        const _NavItem('Bảng lương', Icons.account_balance_wallet_outlined),
       const _NavItem('Cá nhân', LucideIcons.userRound),
     ];
 
@@ -116,7 +123,7 @@ class _NavButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   color: color,

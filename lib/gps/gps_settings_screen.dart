@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/attendance_session.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_header.dart';
 import 'gps_config.dart';
 import 'gps_service.dart';
 import 'gps_status_bar.dart';
-import '../widgets/app_header.dart';
 
 class GpsSettingsScreen extends StatefulWidget {
   final AttendanceSession session;
@@ -17,23 +18,18 @@ class GpsSettingsScreen extends StatefulWidget {
 
 class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   final formKey = GlobalKey<FormState>();
-
   late final TextEditingController radiusController;
-
   bool busy = false;
 
   String title = 'Chưa có địa điểm chấm công';
   String message = 'Nhập phạm vi rồi bấm “Lấy vị trí và lưu địa điểm”.';
   String? details;
-
   GpsNoticeType noticeType = GpsNoticeType.info;
 
   @override
   void initState() {
     super.initState();
-
     final config = widget.session.gpsConfig;
-
     radiusController = TextEditingController(
       text: gpsMetersText(config.radiusMeters),
     );
@@ -45,19 +41,18 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
     }
   }
 
-  String coordinates(GpsConfig config) =>
-      'Tọa độ đã lưu: '
-      '${config.latitude!.toStringAsFixed(6)}, '
-      '${config.longitude!.toStringAsFixed(6)}';
-
-  double? get enteredRadius =>
-      double.tryParse(radiusController.text.trim().replaceAll(',', '.'));
-
   @override
   void dispose() {
     radiusController.dispose();
     super.dispose();
   }
+
+  String coordinates(GpsConfig config) =>
+      'Tọa độ đã lưu: ${config.latitude!.toStringAsFixed(6)}, '
+      '${config.longitude!.toStringAsFixed(6)}';
+
+  double? get enteredRadius =>
+      double.tryParse(radiusController.text.trim().replaceAll(',', '.'));
 
   void showNotice(
     String newTitle,
@@ -66,7 +61,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
     String? newDetails,
   }) {
     if (!mounted) return;
-
     setState(() {
       title = newTitle;
       message = newMessage;
@@ -97,22 +91,18 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
       );
     } catch (error, stack) {
       debugPrint('Lỗi thiết lập địa điểm: $error\n$stack');
-
       showNotice(
         'Chưa thực hiện được',
         'Hãy thử lại.',
         type: GpsNoticeType.error,
       );
     } finally {
-      if (mounted) {
-        setState(() => busy = false);
-      }
+      if (mounted) setState(() => busy = false);
     }
   }
 
   Future<void> persist(GpsConfig config) async {
     final error = await widget.session.saveGpsConfig(config);
-
     if (error != null) {
       throw GpsException(
         error,
@@ -123,15 +113,11 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   }
 
   Future<void> chooseAndSavePlace() async {
-    if (busy || !(formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
+    if (busy || !(formKey.currentState?.validate() ?? false)) return;
     final radius = enteredRadius!;
 
     await runTask(() async {
       final position = await GpsService.getPosition();
-
       if (!mounted) return;
 
       final config = GpsConfig(
@@ -140,9 +126,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
         radiusMeters: radius,
       );
 
-      // Chỉ thông báo thành công sau khi session lưu xong.
       await persist(config);
-
       if (!mounted) return;
 
       showNotice(
@@ -154,19 +138,15 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
             '${coordinates(config)}\n'
             'Độ chính xác lúc thiết lập: khoảng '
             '${gpsMetersText(position.accuracy)} m.\n'
-            'Phạm vi đã lưu: '
-            '${gpsMetersText(config.radiusMeters)} m.',
+            'Phạm vi đã lưu: ${gpsMetersText(config.radiusMeters)} m.',
       );
     });
   }
 
   Future<void> saveRadius() async {
-    if (busy || !(formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (busy || !(formKey.currentState?.validate() ?? false)) return;
 
     final saved = widget.session.gpsConfig;
-
     if (!saved.hasCenter) {
       showNotice(
         'Chưa có địa điểm',
@@ -184,11 +164,9 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
     await runTask(() async {
       await persist(config);
-
       showNotice(
         'Đã lưu phạm vi',
-        'Phạm vi chấm công: '
-            '${gpsMetersText(config.radiusMeters)} m.',
+        'Phạm vi chấm công: ${gpsMetersText(config.radiusMeters)} m.',
         type: GpsNoticeType.success,
         newDetails: coordinates(config),
       );
@@ -198,7 +176,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   Future<void> checkMyPosition() async {
     await runTask(() async {
       final result = await GpsService.check(widget.session.gpsConfig);
-
       showNotice(
         'Trong khu vực chấm công',
         result.message,
@@ -213,7 +190,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
     await runTask(() async {
       final error = await widget.session.clearGpsConfig();
-
       if (error != null) {
         throw GpsException(
           error,
@@ -223,7 +199,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
       }
 
       if (!mounted) return;
-
       final config = widget.session.gpsConfig;
       radiusController.text = gpsMetersText(config.radiusMeters);
 
@@ -231,7 +206,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
         'Đã xóa địa điểm chấm công',
         'Nhân viên chưa thể chấm công. '
             'Bấm “Lấy vị trí và lưu địa điểm” để thiết lập lại.',
-        type: GpsNoticeType.info,
         newDetails:
             'Phạm vi được giữ lại: '
             '${gpsMetersText(config.radiusMeters)} m.',
@@ -241,19 +215,27 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
     final config = widget.session.gpsConfig;
     final canEdit = widget.session.isAdmin;
-
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
     );
+    final buttonStyle = OutlinedButton.styleFrom(
+      shape: buttonShape,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+    );
+    final noteStyle = AiVieTheme.secondary(
+      context,
+      fontSize: 13,
+    ).copyWith(height: 1.45);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: colors.background,
       appBar: AppHeader(
         title: 'Địa điểm chấm công',
         subtitle: 'Thiết lập vị trí và phạm vi chấm công',
-        onBack: () => Navigator.of(context).pop(),
+        onBack: () => Navigator.pop(context),
       ),
       body: SafeArea(
         child: Align(
@@ -270,10 +252,10 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Đứng tại nơi làm việc khi lấy vị trí. '
                     'Lấy lại vị trí sẽ thay thế địa điểm đã lưu.',
-                    style: TextStyle(color: Color(0xFF6B7280), height: 1.45),
+                    style: AiVieTheme.secondary(context),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -288,24 +270,17 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Phạm vi chấm công (mét)',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     validator: (_) {
                       final value = enteredRadius;
-
                       if (value == null ||
                           !value.isFinite ||
                           value < 1 ||
                           value > 5000) {
                         return 'Nhập phạm vi từ 1 đến 5.000 mét.';
                       }
-
                       return null;
                     },
                   ),
@@ -326,10 +301,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                         : null,
                     icon: const Icon(Icons.save_outlined),
                     label: const Text('Lưu thay đổi phạm vi'),
-                    style: OutlinedButton.styleFrom(
-                      shape: buttonShape,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                    style: buttonStyle,
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -338,10 +310,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                         : null,
                     icon: const Icon(Icons.location_searching_rounded),
                     label: const Text('Kiểm tra vị trí của tôi'),
-                    style: OutlinedButton.styleFrom(
-                      shape: buttonShape,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                    style: buttonStyle,
                   ),
                   if (canEdit) ...[
                     const SizedBox(height: 12),
@@ -350,20 +319,17 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                       icon: const Icon(Icons.delete_outline_rounded),
                       label: const Text('Xóa địa điểm'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: colors.error,
+                        side: BorderSide(color: colors.errorBorder),
                         shape: buttonShape,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sau khi xóa, nhân viên chưa thể chấm công '
                       'cho đến khi thiết lập lại địa điểm.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                        height: 1.45,
-                      ),
+                      style: noteStyle,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -372,11 +338,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     '${gpsMetersText(GpsService.maxAccuracyMeters)} m. '
                     'Khi chấm công, khoảng cách cộng sai số '
                     'phải nằm trong phạm vi.',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF6B7280),
-                      height: 1.45,
-                    ),
+                    style: noteStyle,
                   ),
                   if (!canEdit) ...[
                     const SizedBox(height: 12),
@@ -387,7 +349,6 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     config: config,
                     title: title,
                     message: message,
-                    details: null,
                     noticeType: noticeType,
                     busy: busy,
                     showActions: false,
@@ -396,11 +357,9 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     const SizedBox(height: 12),
                     Text(
                       details!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: Color(0xFF4B5563),
-                      ),
+                      style: AiVieTheme.secondary(
+                        context,
+                      ).copyWith(height: 1.5),
                     ),
                   ],
                 ],

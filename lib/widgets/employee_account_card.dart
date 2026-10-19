@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/app_user.dart';
 import '../theme/app_theme.dart';
 
@@ -16,6 +17,7 @@ class EmployeeAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AiVieTheme.of(context);
     final typography = Theme.of(context).textTheme;
 
     return Card(
@@ -25,24 +27,23 @@ class EmployeeAccountCard extends StatelessWidget {
         splashFactory: NoSplash.splashFactory,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        hoverColor: AiVieTheme.primary.withValues(alpha: 0.02),
-        focusColor: AiVieTheme.primary.withValues(alpha: 0.10),
+        hoverColor: colors.primary.withValues(alpha: 0.02),
+        focusColor: colors.primary.withValues(alpha: 0.10),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AiVieTheme.primary.withValues(alpha: 0.08),
+                  color: colors.primarySoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.person_outline_rounded,
                   size: 24,
-                  color: AiVieTheme.primary,
+                  color: colors.primary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -50,25 +51,16 @@ class EmployeeAccountCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      user.fullName,
-                      style: typography.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(user.fullName, style: typography.titleMedium),
                     const SizedBox(height: 4),
                     Text(
                       '@${user.username}',
-                      style: typography.bodyMedium?.copyWith(
-                        color: AiVieTheme.muted,
-                      ),
+                      style: AiVieTheme.secondary(context),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Giao ca · Xem lịch sử',
-                      style: typography.bodySmall?.copyWith(
-                        color: AiVieTheme.primary,
-                      ),
+                      style: AiVieTheme.secondary(context, fontSize: 12),
                     ),
                   ],
                 ),
@@ -77,17 +69,9 @@ class EmployeeAccountCard extends StatelessWidget {
               IconButton(
                 tooltip: 'Chỉnh tài khoản',
                 onPressed: onEdit,
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 20,
-                  color: AiVieTheme.muted,
-                ),
+                icon: Icon(Icons.edit_outlined, size: 20, color: colors.muted),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 22,
-                color: AiVieTheme.muted,
-              ),
+              Icon(Icons.chevron_right_rounded, size: 22, color: colors.muted),
             ],
           ),
         ),
