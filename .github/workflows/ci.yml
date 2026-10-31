@@ -1,0 +1,108 @@
+name: AiVie.check CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Flutter analyze, test and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.6"
+          channel: stable
+          cache: true
+
+      - name: Install Flutter packages
+        run: flutter pub get --enforce-lockfile
+
+      - name: Analyze Dart
+        run: flutter analyze
+
+      - name: Test frontend
+        run: flutter test --no-pub
+
+      - name: Build web
+        run: flutter build web --release --no-pub
+
+      - name: Save web build
+        uses: actions/upload-artifact@v6
+        with:
+          name: aivycheck-web-${{ github.sha }}
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 7
+
+  backend:
+    name: FastAPI and PostgreSQL tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: aivycheck_test
+      DB_USER: aivycheck_app
+      DB_PASSWORD: ci-only-password
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: aivycheck_test
+          POSTGRES_USER: aivycheck_app
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aivycheck_app -d aivycheck_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install backend packages
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Run database migrations
+        run: python -m alembic upgrade head
+
+      - name: Check migration revision
+        run: python -m alembic current
+
+      - name: Test backend
+        run: python -m pytest -q
