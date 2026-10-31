@@ -14,6 +14,8 @@ class HistoryScreen extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? leadingContent;
+  final VoidCallback? onRefresh;
+  final String? error;
 
   const HistoryScreen({
     super.key,
@@ -25,6 +27,8 @@ class HistoryScreen extends StatelessWidget {
     this.title = 'Lịch sử chấm công',
     this.subtitle = 'Các lượt chấm công của bạn',
     this.leadingContent,
+    this.onRefresh,
+    this.error,
   });
 
   @override
@@ -47,6 +51,23 @@ class HistoryScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (leadingContent != null) leadingContent!,
+                if (onRefresh != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                      child: TextButton.icon(
+                        onPressed: busy ? null : onRefresh,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Tải lại lịch sử'),
+                      ),
+                    ),
+                  ),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(error!, style: TextStyle(color: colors.error)),
+                  ),
                 if (busy) const LinearProgressIndicator(minHeight: 2),
                 Expanded(
                   child: records.isEmpty
@@ -54,7 +75,9 @@ class HistoryScreen extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Text(
-                              'Chưa có dữ liệu chấm công',
+                              error != null
+                                  ? 'Chưa tải được lịch sử. Hãy thử lại.'
+                                  : 'Chưa có dữ liệu chấm công',
                               textAlign: TextAlign.center,
                               style: AiVieTheme.secondary(context),
                             ),
@@ -67,6 +90,7 @@ class HistoryScreen extends StatelessWidget {
                               const SizedBox(height: 12),
                           itemBuilder: (_, index) {
                             final record = records[index];
+
                             final canDelete =
                                 !busy &&
                                 onDeleteRecord != null &&

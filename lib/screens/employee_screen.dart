@@ -7,6 +7,7 @@ import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import '../widgets/attendance_status.dart';
 
 class EmployeeHomeScreen extends StatelessWidget {
   final WorkShift? shift;
@@ -100,7 +101,18 @@ class EmployeeHomeScreen extends StatelessWidget {
                                 : record!.isLate
                                 ? 'Đi trễ'
                                 : 'Đúng giờ',
-                            iconColor: colors.warning,
+                            iconColor: AttendanceStatus.timingColor(
+                              context,
+                              record,
+                            ),
+                            valueColor: AttendanceStatus.timingColor(
+                              context,
+                              record,
+                            ),
+                            noteColor: AttendanceStatus.timingColor(
+                              context,
+                              record,
+                            ),
                             backgroundColor: colors.surface,
                           ),
                           const SizedBox(width: 12),
@@ -108,11 +120,11 @@ class EmployeeHomeScreen extends StatelessWidget {
                             icon: Icons.timer_outlined,
                             title: 'Giờ làm việc',
                             value: record?.workClockText(now) ?? '--:--:--',
-                            note: record == null
-                                ? 'Chưa vào ca'
-                                : record!.checkOut == null
-                                ? 'Đang làm'
-                                : 'Đã kết thúc',
+                            note: AttendanceStatus.workLabel(record),
+                            noteColor: AttendanceStatus.workColor(
+                              context,
+                              record,
+                            ),
                             iconColor: colors.primary,
                             backgroundColor: colors.surface,
                           ),

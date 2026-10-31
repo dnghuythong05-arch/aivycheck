@@ -18,6 +18,34 @@ class ScheduleScreen extends StatefulWidget {
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
   bool busy = false;
+  bool loading = true;
+  String? loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    loadShifts();
+  }
+
+  Future<void> loadShifts() async {
+    if (busy) return;
+
+    setState(() {
+      loading = true;
+      loadError = null;
+    });
+
+    final error = await widget.session.loadShifts();
+
+    if (!mounted) return;
+
+    setState(() {
+      loading = false;
+      loadError = error;
+    });
+  }
+
+  bool get blocked => busy || loading || loadError != null;
 
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -26,7 +54,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> editShift([WorkShift? shift]) async {
-    if (busy || !widget.session.isAdmin) return;
+    if (blocked || !widget.session.isAdmin) return;
 
     final result = await Navigator.push<WorkShift>(
       context,
@@ -39,16 +67,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
 
     if (!mounted || result == null) return;
+
     setState(() => busy = true);
+
     final error = await widget.session.saveShift(result);
+
     if (!mounted) return;
 
     setState(() => busy = false);
+
     if (error != null) showMessage(error);
   }
 
   Future<void> deleteShift(WorkShift shift) async {
-    if (busy || !widget.session.isAdmin) return;
+    if (blocked || !widget.session.isAdmin) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -73,8 +105,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
 
     if (!mounted || confirmed != true) return;
+
     setState(() => busy = true);
+
     final error = await widget.session.deleteShift(shift.id);
+
     if (!mounted) return;
 
     setState(() => busy = false);
@@ -85,16 +120,21 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     WorkShift shift, {
     bool openAttendance = false,
   }) async {
-    if (busy) return;
+    if (blocked) return;
+
     setState(() => busy = true);
+
     final error = await widget.session.selectShift(shift.id);
+
     if (!mounted) return;
 
     setState(() => busy = false);
+
     if (error != null) {
       showMessage(error);
       return;
     }
+
     if (openAttendance) Navigator.pop<int>(context, 1);
   }
 
@@ -107,7 +147,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     return Scaffold(
       appBar: AppHeader(
         title: 'Lịch làm',
-        subtitle: widget.session.account!.fullName,
+        subtitle: widget.session.account?.fullName ?? 'Lịch làm',
         onBack: () => Navigator.pop(context),
       ),
       body: SafeArea(
@@ -121,21 +161,57 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (busy) const LinearProgressIndicator(minHeight: 2),
+                if (busy || loading)
+                  const LinearProgressIndicator(minHeight: 2),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: busy || loading ? null : loadShifts,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Tải lại lịch'),
+                    ),
+                  ),
+                ),
                 if (canManage)
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Align(
                       alignment: Alignment.center,
                       child: FilledButton.icon(
-                        onPressed: busy ? null : () => editShift(),
+                        onPressed: blocked ? null : () => editShift(),
                         icon: const Icon(Icons.add_rounded, size: 20),
                         label: const Text('Tạo ca làm'),
                       ),
                     ),
                   ),
                 Expanded(
-                  child: shifts.isEmpty
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : loadError != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  loadError!,
+                                  textAlign: TextAlign.center,
+                                  style: AiVieTheme.secondary(context),
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton.icon(
+                                  onPressed: loadShifts,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Thử lại'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : shifts.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -149,7 +225,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         )
                       : AbsorbPointer(
-                          absorbing: busy,
+                          absorbing: blocked,
                           child: ListView.separated(
                             padding: EdgeInsets.fromLTRB(
                               24,

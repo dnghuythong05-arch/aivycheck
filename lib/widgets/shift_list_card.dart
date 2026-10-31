@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
+import 'attendance_status.dart';
 
 class ShiftListCard extends StatelessWidget {
   final WorkShift shift;
@@ -33,20 +34,7 @@ class ShiftListCard extends StatelessWidget {
     final typography = Theme.of(context).textTheme;
     final colors = AiVieTheme.of(context);
     final completed = record?.checkOut != null;
-    final working = record != null && !completed;
     final showSelection = selected && canAttend;
-
-    final status = completed
-        ? 'Đã hoàn thành'
-        : working
-        ? 'Đang làm'
-        : 'Chưa chấm công';
-
-    final statusColor = completed
-        ? colors.success
-        : working
-        ? colors.warning
-        : colors.muted;
 
     return Card(
       shape: RoundedRectangleBorder(
@@ -96,25 +84,20 @@ class ShiftListCard extends StatelessWidget {
               style: AiVieTheme.secondary(context),
             ),
             const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                AttendanceStatusBadge(
+                  label: AttendanceStatus.workLabel(record),
+                  color: AttendanceStatus.workColor(context, record),
                 ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  status,
-                  style: typography.labelMedium?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
+                if (record != null)
+                  AttendanceStatusBadge(
+                    label: AttendanceStatus.timingLabel(record!),
+                    color: AttendanceStatus.timingColor(context, record),
                   ),
-                ),
-              ),
+              ],
             ),
             if (canAttend) ...[
               const Padding(

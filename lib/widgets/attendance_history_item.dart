@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/attendance_record.dart';
 import '../theme/app_theme.dart';
+import 'attendance_status.dart';
 
 class AttendanceHistoryItem extends StatelessWidget {
   final AttendanceRecord record;
@@ -21,7 +22,6 @@ class AttendanceHistoryItem extends StatelessWidget {
     final colors = AiVieTheme.of(context);
     final shift = record.shiftSnapshot;
     final completed = record.checkOut != null;
-    final statusColor = record.isLate ? colors.warning : colors.success;
 
     return Card(
       color: colors.surface,
@@ -65,29 +65,13 @@ class AttendanceHistoryItem extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    record.statusText,
-                    style: typography.labelMedium?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                AttendanceStatusBadge(
+                  label: AttendanceStatus.workLabel(record),
+                  color: AttendanceStatus.workColor(context, record),
                 ),
-                Text(
-                  completed ? 'Đã hoàn thành' : 'Đang làm',
-                  style: typography.bodySmall?.copyWith(
-                    color: colors.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
+                AttendanceStatusBadge(
+                  label: AttendanceStatus.timingLabel(record),
+                  color: AttendanceStatus.timingColor(context, record),
                 ),
               ],
             ),

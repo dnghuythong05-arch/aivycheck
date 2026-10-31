@@ -9,6 +9,8 @@ class StatCard extends StatelessWidget {
   final String note;
   final Color iconColor;
   final Color backgroundColor;
+  final Color? valueColor;
+  final Color? noteColor;
 
   const StatCard({
     super.key,
@@ -18,6 +20,8 @@ class StatCard extends StatelessWidget {
     required this.note,
     required this.iconColor,
     required this.backgroundColor,
+    this.valueColor,
+    this.noteColor,
   });
 
   @override
@@ -65,7 +69,7 @@ class StatCard extends StatelessWidget {
                     value,
                     style: typography.headlineSmall?.copyWith(
                       fontSize: 28,
-                      color: colors.text,
+                      color: valueColor ?? colors.text,
                     ),
                   ),
                 ),
@@ -75,7 +79,12 @@ class StatCard extends StatelessWidget {
                 note,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AiVieTheme.secondary(context, fontSize: 13),
+                style: AiVieTheme.secondary(context, fontSize: 13).copyWith(
+                  color: noteColor ?? colors.muted,
+                  fontWeight: noteColor == null
+                      ? FontWeight.w400
+                      : FontWeight.w600,
+                ),
               ),
             ],
           ),

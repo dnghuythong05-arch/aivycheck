@@ -18,14 +18,21 @@ class WorkShift {
     }
   }
 
+  bool get isRemote =>
+      id.startsWith('shift_db_') || id.startsWith('shift_import_');
+
+  WorkShift withId(String value) =>
+      WorkShift(id: value, name: name, start: start, end: end);
+
   bool get isOvernight => !sameAttendanceDay(start, end);
 
   WorkShift snapshot() => WorkShift(id: id, name: name, start: start, end: end);
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'start': start.toIso8601String(),
-    'end': end.toIso8601String(),
+    'start': start.toUtc().toIso8601String(),
+    'end': end.toUtc().toIso8601String(),
   };
 
   factory WorkShift.fromJson(Map<String, dynamic> json) {

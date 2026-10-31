@@ -19,27 +19,66 @@ class GpsSettingsScreen extends StatefulWidget {
 class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   final formKey = GlobalKey<FormState>();
   late final TextEditingController radiusController;
+
   bool busy = false;
+  bool loading = true;
+  String? loadError;
 
   String title = 'Chưa có địa điểm chấm công';
   String message = 'Nhập phạm vi rồi bấm “Lấy vị trí và lưu địa điểm”.';
   String? details;
+
   GpsNoticeType noticeType = GpsNoticeType.info;
 
   @override
   void initState() {
     super.initState();
+
     final config = widget.session.gpsConfig;
+
     radiusController = TextEditingController(
       text: gpsMetersText(config.radiusMeters),
     );
 
-    if (config.hasCenter) {
-      title = 'Đã lưu địa điểm';
-      message = 'Có thể kiểm tra vị trí hoặc cập nhật phạm vi.';
-      details = coordinates(config);
-    }
+    loadConfig();
   }
+
+  Future<void> loadConfig() async {
+    setState(() {
+      loading = true;
+      loadError = null;
+    });
+
+    final error = await widget.session.loadGpsConfig();
+
+    if (!mounted) return;
+
+    final config = widget.session.gpsConfig;
+
+    setState(() {
+      loading = false;
+      loadError = error;
+      radiusController.text = gpsMetersText(config.radiusMeters);
+
+      title = error != null
+          ? 'Chưa tải được địa điểm'
+          : config.hasCenter
+          ? 'Đã lưu địa điểm'
+          : 'Chưa có địa điểm chấm công';
+
+      message =
+          error ??
+          (config.hasCenter
+              ? 'Có thể kiểm tra vị trí hoặc cập nhật phạm vi.'
+              : 'Nhập phạm vi rồi bấm “Lấy vị trí và lưu địa điểm”.');
+
+      details = error == null && config.hasCenter ? coordinates(config) : null;
+
+      noticeType = error == null ? GpsNoticeType.info : GpsNoticeType.error;
+    });
+  }
+
+  bool get blocked => busy || loading || loadError != null;
 
   @override
   void dispose() {
@@ -61,6 +100,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
     String? newDetails,
   }) {
     if (!mounted) return;
+
     setState(() {
       title = newTitle;
       message = newMessage;
@@ -70,7 +110,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   }
 
   Future<void> runTask(Future<void> Function() task) async {
-    if (busy || !widget.session.isAdmin) return;
+    if (blocked || !widget.session.isAdmin) return;
 
     setState(() {
       busy = true;
@@ -91,6 +131,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
       );
     } catch (error, stack) {
       debugPrint('Lỗi thiết lập địa điểm: $error\n$stack');
+
       showNotice(
         'Chưa thực hiện được',
         'Hãy thử lại.',
@@ -103,6 +144,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
   Future<void> persist(GpsConfig config) async {
     final error = await widget.session.saveGpsConfig(config);
+
     if (error != null) {
       throw GpsException(
         error,
@@ -113,11 +155,13 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   }
 
   Future<void> chooseAndSavePlace() async {
-    if (busy || !(formKey.currentState?.validate() ?? false)) return;
+    if (blocked || !(formKey.currentState?.validate() ?? false)) return;
+
     final radius = enteredRadius!;
 
     await runTask(() async {
       final position = await GpsService.getPosition();
+
       if (!mounted) return;
 
       final config = GpsConfig(
@@ -127,6 +171,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
       );
 
       await persist(config);
+
       if (!mounted) return;
 
       showNotice(
@@ -144,9 +189,10 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   }
 
   Future<void> saveRadius() async {
-    if (busy || !(formKey.currentState?.validate() ?? false)) return;
+    if (blocked || !(formKey.currentState?.validate() ?? false)) return;
 
     final saved = widget.session.gpsConfig;
+
     if (!saved.hasCenter) {
       showNotice(
         'Chưa có địa điểm',
@@ -164,6 +210,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
 
     await runTask(() async {
       await persist(config);
+
       showNotice(
         'Đã lưu phạm vi',
         'Phạm vi chấm công: ${gpsMetersText(config.radiusMeters)} m.',
@@ -176,6 +223,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   Future<void> checkMyPosition() async {
     await runTask(() async {
       final result = await GpsService.check(widget.session.gpsConfig);
+
       showNotice(
         'Trong khu vực chấm công',
         result.message,
@@ -186,10 +234,11 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
   }
 
   Future<void> clearPlace() async {
-    if (busy || !widget.session.gpsConfig.hasCenter) return;
+    if (blocked || !widget.session.gpsConfig.hasCenter) return;
 
     await runTask(() async {
       final error = await widget.session.clearGpsConfig();
+
       if (error != null) {
         throw GpsException(
           error,
@@ -199,6 +248,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
       }
 
       if (!mounted) return;
+
       final config = widget.session.gpsConfig;
       radiusController.text = gpsMetersText(config.radiusMeters);
 
@@ -218,13 +268,16 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
     final colors = AiVieTheme.of(context);
     final config = widget.session.gpsConfig;
     final canEdit = widget.session.isAdmin;
+
     final buttonShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(12),
     );
+
     final buttonStyle = OutlinedButton.styleFrom(
       shape: buttonShape,
       padding: const EdgeInsets.symmetric(vertical: 16),
     );
+
     final noteStyle = AiVieTheme.secondary(
       context,
       fontSize: 13,
@@ -247,6 +300,15 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
+                  if (loading) const LinearProgressIndicator(minHeight: 2),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: busy || loading ? null : loadConfig,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Tải lại địa điểm'),
+                    ),
+                  ),
                   Text(
                     'Thiết lập địa điểm',
                     style: Theme.of(context).textTheme.titleLarge,
@@ -259,14 +321,18 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    config.hasCenter
+                    loading
+                        ? 'Đang tải địa điểm…'
+                        : loadError != null
+                        ? 'Chưa tải được địa điểm.'
+                        : config.hasCenter
                         ? coordinates(config)
                         : 'Chưa có tọa độ được lưu.',
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: radiusController,
-                    enabled: canEdit && !busy,
+                    enabled: canEdit && !blocked,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -275,18 +341,20 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     ),
                     validator: (_) {
                       final value = enteredRadius;
+
                       if (value == null ||
                           !value.isFinite ||
                           value < 1 ||
                           value > 5000) {
                         return 'Nhập phạm vi từ 1 đến 5.000 mét.';
                       }
+
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: canEdit && !busy ? chooseAndSavePlace : null,
+                    onPressed: canEdit && !blocked ? chooseAndSavePlace : null,
                     icon: const Icon(Icons.my_location_rounded),
                     label: const Text('Lấy vị trí và lưu địa điểm'),
                     style: FilledButton.styleFrom(
@@ -296,7 +364,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: canEdit && !busy && config.hasCenter
+                    onPressed: canEdit && !blocked && config.hasCenter
                         ? saveRadius
                         : null,
                     icon: const Icon(Icons.save_outlined),
@@ -305,7 +373,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: canEdit && !busy && config.hasCenter
+                    onPressed: canEdit && !blocked && config.hasCenter
                         ? checkMyPosition
                         : null,
                     icon: const Icon(Icons.location_searching_rounded),
@@ -315,7 +383,9 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                   if (canEdit) ...[
                     const SizedBox(height: 12),
                     OutlinedButton.icon(
-                      onPressed: !busy && config.hasCenter ? clearPlace : null,
+                      onPressed: !blocked && config.hasCenter
+                          ? clearPlace
+                          : null,
                       icon: const Icon(Icons.delete_outline_rounded),
                       label: const Text('Xóa địa điểm'),
                       style: OutlinedButton.styleFrom(
@@ -350,7 +420,7 @@ class _GpsSettingsScreenState extends State<GpsSettingsScreen> {
                     title: title,
                     message: message,
                     noticeType: noticeType,
-                    busy: busy,
+                    busy: busy || loading,
                     showActions: false,
                   ),
                   if (details != null) ...[

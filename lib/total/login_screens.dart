@@ -28,12 +28,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final preferences = SharedPreferencesAsync();
 
   String? selectedRememberedUsername;
+
   bool obscurePassword = true;
   bool rememberLogin = false;
   bool rememberedLoginLoaded = false;
   bool loading = true;
   bool opening = false;
+  bool sessionTransferred = false;
   bool updatingRemember = false;
+
   String? error;
   String? rememberNotice;
 
@@ -47,33 +50,43 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    if (!opening && !sessionTransferred) {
+      session.auth.dispose();
+    }
+
     usernameFocusNode.dispose();
     usernameController.dispose();
     passwordController.dispose();
+
     super.dispose();
   }
 
   Future<void> restoreRememberedLogin() async {
     final text = await preferences.getString(rememberedLoginKey);
+
     if (text == null) return;
 
     final json = Map<String, dynamic>.from(jsonDecode(text) as Map);
+
     final accounts = <String, String>{};
 
     if (json['version'] == 1) {
       final username = json['username'];
       final password = json['password'];
+
       if (username is! String ||
           username.trim().isEmpty ||
           password is! String ||
           password.isEmpty) {
         throw const FormatException('Thông tin ghi nhớ không hợp lệ.');
       }
+
       accounts[username.trim().toLowerCase()] = password;
     } else if (json['version'] == 2 && json['accounts'] is Map) {
       for (final entry in (json['accounts'] as Map).entries) {
         final username = entry.key;
         final password = entry.value;
+
         if (username is String &&
             username.trim().isNotEmpty &&
             password is String &&
@@ -86,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (!mounted) return;
+
     rememberedLogins
       ..clear()
       ..addAll(accounts);
@@ -96,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await preferences.remove(rememberedLoginKey);
       return;
     }
+
     await preferences.setString(
       rememberedLoginKey,
       jsonEncode({'version': 2, 'accounts': accounts}),
@@ -104,6 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> loadAccounts() async {
     if (opening || updatingRemember) return;
+
     setState(() {
       loading = true;
       error = null;
@@ -111,6 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await session.load();
+
       if (!mounted) return;
 
       if (!rememberedLoginLoaded) {
@@ -118,17 +135,21 @@ class _LoginScreenState extends State<LoginScreen> {
           await restoreRememberedLogin();
         } catch (_) {
           if (!mounted) return;
+
           rememberNotice =
               'Chưa đọc được thông tin đã nhớ. '
               'Bạn vẫn có thể nhập tài khoản và mật khẩu để đăng nhập.';
         }
+
         rememberedLoginLoaded = true;
       }
 
       if (!mounted) return;
+
       setState(() => loading = false);
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         loading = false;
         error = 'Chưa đọc được dữ liệu tài khoản. Hãy thử lại.';
@@ -144,10 +165,12 @@ class _LoginScreenState extends State<LoginScreen> {
         rememberLogin = true;
         rememberNotice = null;
       });
+
       return;
     }
 
     final username = usernameController.text.trim().toLowerCase();
+
     final next = {...rememberedLogins}..remove(username);
 
     setState(() {
@@ -158,34 +181,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await saveRememberedLogins(next);
+
       if (!mounted) return;
 
       rememberedLogins
         ..clear()
         ..addAll(next);
+
       selectedRememberedUsername = null;
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         rememberLogin = true;
         rememberNotice = 'Chưa xóa được thông tin đã nhớ. Hãy thử lại.';
       });
     } finally {
-      if (mounted) setState(() => updatingRemember = false);
+      if (mounted) {
+        setState(() => updatingRemember = false);
+      }
     }
   }
 
   Future<void> login() async {
-    if (blocked || !formKey.currentState!.validate()) return;
-
-    final username = usernameController.text.trim().toLowerCase();
-    final password = passwordController.text;
-    final message = session.signIn(username, password);
-
-    if (message != null) {
-      setState(() => error = message);
+    if (blocked || !formKey.currentState!.validate()) {
       return;
     }
+
+    final username = usernameController.text.trim().toLowerCase();
+
+    final password = passwordController.text;
 
     setState(() {
       opening = true;
@@ -193,8 +218,28 @@ class _LoginScreenState extends State<LoginScreen> {
       rememberNotice = null;
     });
 
+    final message = await session.signIn(username, password);
+
+    if (!mounted) {
+      await session.signOut();
+      session.auth.dispose();
+      return;
+    }
+
+    if (message != null) {
+      setState(() {
+        opening = false;
+        error = message;
+      });
+
+      return;
+    }
+
+    String? notice;
+
     try {
       final next = {...rememberedLogins};
+
       if (rememberLogin) {
         next[username] = password;
       } else {
@@ -202,29 +247,32 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       await saveRememberedLogins(next);
+
       rememberedLogins
         ..clear()
         ..addAll(next);
     } catch (_) {
-      session.signOut();
-      if (!mounted) return;
-
-      setState(() {
-        opening = false;
-        error = 'Chưa lưu được lựa chọn ghi nhớ. Hãy thử lại.';
-      });
-      return;
+      notice = 'Đã đăng nhập, nhưng chưa lưu được lựa chọn ghi nhớ.';
     }
 
     if (!mounted) {
-      session.signOut();
+      await session.signOut();
+      session.auth.dispose();
       return;
     }
+
+    sessionTransferred = true;
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => EmployeeMainScreen(session: session)),
     );
+
+    if (notice != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(notice)));
+    }
   }
 
   Widget buildUsernameField() {
@@ -239,7 +287,9 @@ class _LoginScreenState extends State<LoginScreen> {
             if (blocked || value.text.trim().isEmpty) {
               return const Iterable<String>.empty();
             }
+
             final query = value.text.trim().toLowerCase();
+
             return rememberedLogins.keys
                 .where((username) => username.startsWith(query))
                 .toList()
@@ -247,6 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
           },
           onSelected: (username) {
             if (blocked) return;
+
             setState(() {
               selectedRememberedUsername = username;
               passwordController.text = rememberedLogins[username]!;
@@ -254,6 +305,7 @@ class _LoginScreenState extends State<LoginScreen> {
               error = null;
               rememberNotice = null;
             });
+
             FocusScope.of(context).unfocus();
           },
           fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
@@ -309,6 +361,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       itemCount: accounts.length,
                       itemBuilder: (context, index) {
                         final username = accounts[index];
+
                         return ListTile(
                           leading: Icon(
                             Icons.person_outline,

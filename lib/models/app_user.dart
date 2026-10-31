@@ -6,24 +6,20 @@ class AppUser {
   final String fullName;
   final String email;
   final UserRole role;
-  final String _password;
 
   AppUser({
     required this.id,
     required String username,
     required String fullName,
     required String email,
-    required String password,
     required this.role,
   }) : username = username.trim().toLowerCase(),
        fullName = fullName.trim(),
-       email = email.trim().toLowerCase(),
-       _password = password {
+       email = email.trim().toLowerCase() {
     if (id.isEmpty ||
         this.username.isEmpty ||
         this.fullName.isEmpty ||
-        this.email.isEmpty ||
-        password.isEmpty) {
+        this.email.isEmpty) {
       throw ArgumentError('Thông tin tài khoản chưa đầy đủ.');
     }
   }
@@ -32,50 +28,50 @@ class AppUser {
 
   String get roleLabel => isAdmin ? 'Admin' : 'Nhân viên';
 
-  bool acceptsPassword(String password) => _password == password;
-
   AppUser update({
     required String username,
     required String fullName,
     required String email,
-    String? password,
-  }) {
-    return AppUser(
-      id: id,
-      username: username,
-      fullName: fullName,
-      email: email,
-      password: password == null || password.isEmpty ? _password : password,
-      role: role,
-    );
-  }
+  }) => AppUser(
+    id: id,
+    username: username,
+    fullName: fullName,
+    email: email,
+    role: role,
+  );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'username': username,
     'fullName': fullName,
     'email': email,
-    'password': _password,
     'role': role.name,
   };
 
-  factory AppUser.fromJson(Map<String, dynamic> json) {
+  factory AppUser.fromApiJson(Map<String, dynamic> json) {
+    final role = json['role'];
+
+    if (role != 'admin' && role != 'employee') {
+      throw const FormatException('Vai trò tài khoản không hợp lệ.');
+    }
+
     return AppUser(
       id: json['id'] as String,
       username: json['username'] as String,
       fullName: json['fullName'] as String,
       email: json['email'] as String,
-      password: json['password'] as String,
-      role: UserRole.values.byName(json['role'] as String),
+      role: UserRole.values.byName(role as String),
     );
   }
+
+  factory AppUser.fromJson(Map<String, dynamic> json) =>
+      AppUser.fromApiJson(json);
 }
 
 List<AppUser> demoUsers() => [
   AppUser(
     id: 'admin_aivee',
     username: 'aiviee',
-    password: '123',
     fullName: 'Trương Thu Thảo',
     email: 'truongaivy2863@gmail.com',
     role: UserRole.admin,
@@ -83,7 +79,6 @@ List<AppUser> demoUsers() => [
   AppUser(
     id: 'employee_huythong',
     username: 'huythong',
-    password: '123',
     fullName: 'Đặng Huy Thông',
     email: 'dnghuythong05@gmail.com',
     role: UserRole.employee,

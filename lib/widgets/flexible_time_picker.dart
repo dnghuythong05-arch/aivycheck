@@ -142,7 +142,7 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: colors.primarySoft,
+                  color: colors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -153,9 +153,10 @@ class _TimePickerDialogState extends State<_TimePickerDialog> {
               (index) => Center(
                 child: Text(
                   two(index),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(fontSize: 27),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 27,
+                    color: colors.text,
+                  ),
                 ),
               ),
             ),

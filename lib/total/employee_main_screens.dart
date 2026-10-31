@@ -9,6 +9,7 @@ import '../gps/gps_status_bar.dart';
 import '../models/attendance_record.dart';
 import '../models/attendance_session.dart';
 import '../models/curved_bottom_nav.dart';
+import '../services/api_client.dart';
 import '../screens/attendance_screen.dart';
 import '../screens/employee_screen.dart';
 import '../screens/history_screen.dart';
@@ -42,6 +43,10 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   bool gpsBusy = false;
   bool attendanceBusy = false;
   bool historyBusy = false;
+  bool logoutBusy = false;
+  bool redirecting = false;
+  bool refreshingAuth = false;
+  bool directoryBusy = false;
 
   String? loadError;
 
@@ -51,7 +56,6 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
   GpsNoticeType gpsNoticeType = GpsNoticeType.info;
 
-  // Gắn với tài khoản huythong gốc bằng ID.
   bool get canViewSalary =>
       !session.isAdmin &&
       session.isOwnSession &&
@@ -59,16 +63,26 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
   int get profileIndex => session.isAdmin || canViewSalary ? 4 : 3;
 
-  bool get blocked => attendanceBusy || historyBusy;
+  bool get blocked =>
+      attendanceBusy ||
+      historyBusy ||
+      logoutBusy ||
+      directoryBusy ||
+      refreshingAuth;
 
   @override
   void initState() {
     super.initState();
+
     session = widget.session ?? AttendanceSession();
+
     WidgetsBinding.instance.addObserver(this);
+    session.auth.addListener(authChanged);
 
     refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
+      session.auth.checkExpiry();
+
+      if (mounted && !redirecting) {
         setState(() => now = DateTime.now());
       }
     });
@@ -79,15 +93,85 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   @override
   void dispose() {
     refreshTimer?.cancel();
+
+    session.auth.removeListener(authChanged);
+    session.auth.dispose();
+
     WidgetsBinding.instance.removeObserver(this);
+
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      setState(() => now = DateTime.now());
+      session.auth.checkExpiry();
+
+      if (!redirecting) {
+        unawaited(refreshAuthentication());
+      }
     }
+  }
+
+  Future<void> refreshAuthentication() async {
+    if (refreshingAuth || loading || blocked || gpsBusy) {
+      return;
+    }
+
+    setState(() => refreshingAuth = true);
+
+    try {
+      await session.refreshUser();
+
+      final gpsError = await session.loadGpsConfig();
+
+      if (gpsError != null) {
+        throw ApiException(gpsError);
+      }
+
+      final error = await session.loadShifts();
+
+      if (error != null) {
+        throw ApiException(error);
+      }
+
+      if (mounted && !redirecting) {
+        setState(() {});
+      }
+    } on ApiException catch (error) {
+      if (mounted && !redirecting) {
+        feedback(error.message);
+      }
+    } finally {
+      if (mounted && !redirecting) {
+        setState(() => refreshingAuth = false);
+      } else {
+        refreshingAuth = false;
+      }
+    }
+  }
+
+  void authChanged() {
+    if (!mounted || redirecting) return;
+
+    if (session.currentUser == null) {
+      openLogin();
+    } else {
+      AppHeader.setAdminVisible(session.isAdmin);
+      setState(() {});
+    }
+  }
+
+  void openLogin() {
+    if (!mounted || redirecting) return;
+
+    redirecting = true;
+    AppHeader.setAdminVisible(false);
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   Future<void> loadSession() async {
@@ -98,22 +182,64 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     try {
       await session.load();
-      if (!mounted) return;
+      await session.refreshUser();
+
+      if (session.isAdmin) {
+        final error = await session.loadEmployees();
+
+        if (error != null) {
+          throw ApiException(error);
+        }
+
+        final migrationError = await session.migrateLocalShifts();
+
+        if (migrationError != null) {
+          throw ApiException(migrationError);
+        }
+
+        final setupError = await session.migrateLocalSetup();
+
+        if (setupError != null) {
+          throw ApiException(setupError);
+        }
+      }
+
+      final gpsError = await session.loadGpsConfig();
+
+      if (gpsError != null) {
+        throw ApiException(gpsError);
+      }
+
+      final shiftError = await session.loadShifts();
+
+      if (shiftError != null) {
+        throw ApiException(shiftError);
+      }
+
+      if (!mounted || redirecting) return;
 
       AppHeader.setAdminVisible(session.isAdmin);
       setState(() => loading = false);
-    } catch (_) {
-      if (!mounted) return;
+    } catch (error) {
+      if (!mounted || redirecting) return;
+
+      if (session.currentUser == null) {
+        openLogin();
+        return;
+      }
 
       setState(() {
         loading = false;
-        loadError = 'Chưa đọc được dữ liệu. Hãy thử lại.';
+        loadError = error is ApiException
+            ? error.message
+            : 'Chưa đọc được dữ liệu. Hãy thử lại.';
       });
     }
   }
 
   void feedback(String message, {bool success = false}) {
     if (!mounted) return;
+
     final colors = AiVieTheme.of(context);
 
     ScaffoldMessenger.of(context)
@@ -136,8 +262,31 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       );
   }
 
-  void changeTab(int index) {
-    if (blocked || index < 0 || index > profileIndex) return;
+  Future<void> changeTab(int index) async {
+    if (blocked || index < 0 || index > profileIndex) {
+      return;
+    }
+
+    if (session.isAdmin && index == 3 && currentIndex != 3) {
+      if (!await refreshEmployees()) return;
+    }
+
+    if ((index == 0 || index == 1 || index == 2) && currentIndex != index) {
+      setState(() => directoryBusy = true);
+
+      final error = await session.loadShifts();
+
+      if (!mounted || redirecting) return;
+
+      setState(() => directoryBusy = false);
+
+      if (error != null) {
+        feedback(error);
+        return;
+      }
+    }
+
+    if (!mounted || redirecting) return;
 
     final enteringAttendance = index == 1 && currentIndex != 1;
 
@@ -148,6 +297,33 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     if (enteringAttendance) {
       unawaited(verifyGps());
+    }
+  }
+
+  Future<bool> refreshEmployees() async {
+    if (blocked || !session.isAdmin || !mounted) {
+      return false;
+    }
+
+    setState(() => directoryBusy = true);
+
+    try {
+      final error = await session.loadEmployees();
+
+      if (!mounted || redirecting) return false;
+
+      if (error != null) {
+        feedback(error);
+        return false;
+      }
+
+      setState(() {});
+
+      return true;
+    } finally {
+      if (mounted && !redirecting) {
+        setState(() => directoryBusy = false);
+      }
     }
   }
 
@@ -163,6 +339,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     setState(() {
       now = DateTime.now();
+
       if (target != null && target >= 0 && target <= profileIndex) {
         currentIndex = target;
       }
@@ -176,6 +353,26 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   void openSalary() {
     if (!canViewSalary) return;
     changeTab(3);
+  }
+
+  Future<void> refreshHistory() async {
+    if (blocked || gpsBusy) return;
+
+    setState(() => historyBusy = true);
+
+    try {
+      final error = await session.loadShifts();
+
+      if (!mounted || redirecting) return;
+
+      setState(() => now = DateTime.now());
+
+      if (error != null) feedback(error);
+    } finally {
+      if (mounted && !redirecting) {
+        setState(() => historyBusy = false);
+      }
+    }
   }
 
   void openEmployees() {
@@ -195,6 +392,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
     try {
       final error = await session.clearGpsConfig();
+
       if (!mounted) return;
 
       if (error != null) {
@@ -215,7 +413,9 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
         feedback('Chưa xóa được địa điểm. Hãy thử lại.');
       }
     } finally {
-      if (mounted) setState(() => gpsBusy = false);
+      if (mounted) {
+        setState(() => gpsBusy = false);
+      }
     }
   }
 
@@ -228,6 +428,7 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     );
 
     if (!mounted) return;
+
     if (currentIndex == 1) {
       unawaited(verifyGps());
     }
@@ -236,6 +437,10 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
   Future<void> openFaceRegistration() async {
     if (blocked || gpsBusy || !session.isAdmin) return;
 
+    if (!await refreshEmployees()) return;
+
+    if (!mounted || redirecting) return;
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -243,10 +448,11 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     );
 
     if (!mounted) return;
+
     setState(() => now = DateTime.now());
   }
 
-  Future<GpsCheckResult?> verifyGps() async {
+  Future<GpsCheckResult?> verifyGps({bool refreshConfig = true}) async {
     if (gpsBusy || !mounted) return null;
 
     setState(() {
@@ -258,7 +464,19 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     });
 
     try {
+      final gpsError = refreshConfig ? await session.loadGpsConfig() : null;
+
+      if (gpsError != null) {
+        throw GpsException(
+          gpsError,
+          title: 'Chưa tải được địa điểm',
+          kind: GpsFailure.unavailable,
+          noticeType: GpsNoticeType.error,
+        );
+      }
+
       final result = await GpsService.check(session.gpsConfig);
+
       if (!mounted) return null;
 
       setState(() {
@@ -274,9 +492,11 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
       setState(() {
         gpsTitle = error.title;
+
         gpsMessage = error.kind == GpsFailure.notConfigured && session.isAdmin
             ? 'Hãy mở Địa điểm chấm công để thiết lập.'
             : error.message;
+
         gpsDetails = error.details;
         gpsNoticeType = error.noticeType;
       });
@@ -294,35 +514,76 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
 
       return null;
     } finally {
-      if (mounted) setState(() => gpsBusy = false);
+      if (mounted) {
+        setState(() => gpsBusy = false);
+      }
     }
   }
 
   Future<void> handleAttendance() async {
     if (blocked || gpsBusy) return;
 
-    if (!session.gpsConfig.hasCenter) {
-      await verifyGps();
-      if (mounted) {
-        feedback('Admin cần thiết lập và lưu địa điểm chấm công trước.');
-      }
-      return;
-    }
-
-    if (session.selectedShift == null) {
-      feedback('Hãy chọn ca được giao trong Lịch làm.');
-      return;
-    }
-
-    if (session.selectedRecord?.checkOut != null) {
-      feedback('Ca này đã hoàn thành.');
-      return;
-    }
-
     setState(() => attendanceBusy = true);
 
     try {
+      final requestedShiftId = session.selectedShiftId;
+      final requestedCheckingIn = session.selectedRecord == null;
+
+      final refreshError = await session.loadShifts();
+
+      if (!mounted) return;
+
+      if (refreshError != null) {
+        feedback(refreshError);
+        return;
+      }
+
+      if (requestedShiftId != session.selectedShiftId ||
+          requestedCheckingIn != (session.selectedRecord == null)) {
+        setState(() {});
+
+        feedback(
+          'Trạng thái ca đã thay đổi. '
+          'Hãy kiểm tra rồi bấm lại.',
+        );
+
+        return;
+      }
+
+      final gpsError = await session.loadGpsConfig();
+
+      if (!mounted) return;
+
+      if (gpsError != null) {
+        feedback(gpsError);
+        return;
+      }
+
+      if (!session.gpsConfig.hasCenter) {
+        await verifyGps(refreshConfig: false);
+
+        if (mounted) {
+          feedback(
+            'Admin cần thiết lập và lưu địa điểm '
+            'chấm công trước.',
+          );
+        }
+
+        return;
+      }
+
+      if (session.selectedShift == null) {
+        feedback('Hãy chọn ca được giao trong Lịch làm.');
+        return;
+      }
+
+      if (session.selectedRecord?.checkOut != null) {
+        feedback('Ca này đã hoàn thành.');
+        return;
+      }
+
       final faceError = await session.verifyOwnFace();
+
       if (!mounted) return;
 
       if (faceError != null) {
@@ -330,17 +591,19 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
         return;
       }
 
-      // Xác minh khuôn mặt xong mới lấy vị trí mới.
-      final result = await verifyGps();
+      final result = await verifyGps(refreshConfig: false);
+
       if (!mounted || result == null) return;
 
       final time = DateTime.now();
       final checkingIn = session.selectedRecord == null;
+
       final error = checkingIn
-          ? await session.checkIn(time)
-          : await session.checkOut(time);
+          ? await session.checkIn(time, gps: result)
+          : await session.checkOut(time, gps: result);
 
       if (!mounted) return;
+
       setState(() => now = time);
 
       if (error != null) {
@@ -354,7 +617,8 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
         checkingIn
             ? 'CHECK IN thành công · '
                   '${record.isLate ? 'Đi trễ ${record.lateAmountText}' : 'Đúng giờ'}'
-            : 'CHECK OUT thành công · ${record.workTimeText(time)}',
+            : 'CHECK OUT thành công · '
+                  '${record.workTimeText(time)}',
         success: true,
       );
     } catch (_) {
@@ -363,7 +627,10 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       }
     } finally {
       session.clearFaceVerification();
-      if (mounted) setState(() => attendanceBusy = false);
+
+      if (mounted) {
+        setState(() => attendanceBusy = false);
+      }
     }
   }
 
@@ -397,25 +664,40 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
       if (!mounted || confirmed != true) return;
 
       final error = await session.deleteRecord(record.shiftId);
+
       if (!mounted) return;
 
       setState(() {});
+
       feedback(error ?? 'Đã xóa lượt chấm công.', success: error == null);
     } finally {
-      if (mounted) setState(() => historyBusy = false);
+      if (mounted) {
+        setState(() => historyBusy = false);
+      }
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
     if (blocked) return;
 
-    session.signOut();
-    AppHeader.setAdminVisible(false);
+    setState(() => logoutBusy = true);
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
+    try {
+      final error = await session.signOut();
+
+      if (!mounted || redirecting) return;
+
+      if (error != null) {
+        feedback(error);
+        return;
+      }
+
+      openLogin();
+    } finally {
+      if (mounted && !redirecting) {
+        setState(() => logoutBusy = false);
+      }
+    }
   }
 
   @override
@@ -436,6 +718,10 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
                 onPressed: loadSession,
                 child: const Text('Thử lại'),
               ),
+              TextButton(
+                onPressed: logoutBusy ? null : logout,
+                child: const Text('Đăng xuất'),
+              ),
             ],
           ),
         ),
@@ -443,7 +729,10 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
     }
 
     final user = session.currentUser;
-    if (user == null) return const LoginScreen();
+
+    if (user == null) {
+      return const LoginScreen();
+    }
 
     final record = session.selectedRecord;
     final shift = record?.shiftSnapshot ?? session.selectedShift;
@@ -476,6 +765,8 @@ class _EmployeeMainScreenState extends State<EmployeeMainScreen>
         records: session.records,
         now: now,
         busy: historyBusy,
+        onRefresh: refreshHistory,
+        error: session.historyError,
         onBackHome: () => changeTab(0),
         onDeleteRecord: session.isAdmin ? deleteHistoryRecord : null,
       ),

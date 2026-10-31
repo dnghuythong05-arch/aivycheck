@@ -20,13 +20,37 @@ class EmployeeDetailsScreen extends StatefulWidget {
 class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
   Timer? timer;
   DateTime now = DateTime.now();
+
   bool busy = false;
+  bool loadingShifts = true;
+  String? shiftError;
+
+  Future<void> loadShifts() async {
+    setState(() {
+      loadingShifts = true;
+      shiftError = null;
+    });
+
+    final error = await widget.session.loadShifts();
+
+    if (mounted) {
+      setState(() {
+        loadingShifts = false;
+        shiftError = error;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+
+    loadShifts();
+
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => now = DateTime.now());
+      if (mounted) {
+        setState(() => now = DateTime.now());
+      }
     });
   }
 
@@ -37,18 +61,25 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
   }
 
   Future<void> openSchedule() async {
-    if (busy || !widget.session.isAdmin) return;
+    if (busy || loadingShifts || !widget.session.isAdmin) {
+      return;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ScheduleScreen(session: widget.session),
       ),
     );
-    if (mounted) setState(() {});
+
+    if (mounted) {
+      await loadShifts();
+    }
   }
 
   Future<void> deleteRecord(AttendanceRecord record) async {
     if (busy || !widget.session.isAdmin) return;
+
     setState(() => busy = true);
 
     try {
@@ -79,10 +110,13 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
       );
 
       if (!mounted || confirmed != true) return;
+
       final error = await widget.session.deleteRecord(record.shiftId);
+
       if (!mounted) return;
 
       setState(() {});
+
       final colors = AiVieTheme.of(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,7 +132,9 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+      }
     }
   }
 
@@ -113,7 +149,9 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
       subtitle: 'Ca và lịch sử chấm công',
       records: widget.session.records,
       now: now,
-      busy: busy,
+      busy: busy || loadingShifts,
+      onRefresh: busy || loadingShifts ? null : loadShifts,
+      error: shiftError,
       onBackHome: () => Navigator.pop(context),
       onDeleteRecord: canManage ? deleteRecord : null,
       leadingContent: Padding(
@@ -129,10 +167,21 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
                   children: [
                     Text(user.email, style: AiVieTheme.secondary(context)),
                     const SizedBox(height: 8),
-                    Text(
-                      'Đã giao ${widget.session.shifts.length} ca',
-                      style: typography.titleMedium,
-                    ),
+                    if (loadingShifts)
+                      const LinearProgressIndicator(minHeight: 2)
+                    else if (shiftError != null) ...[
+                      Text(shiftError!, style: AiVieTheme.secondary(context)),
+                      TextButton.icon(
+                        onPressed: loadShifts,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Thử lại'),
+                      ),
+                    ] else
+                      Text(
+                        'Đã giao '
+                        '${widget.session.shifts.length} ca',
+                        style: typography.titleMedium,
+                      ),
                   ],
                 ),
               ),
@@ -142,7 +191,9 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
-                  onPressed: busy ? null : openSchedule,
+                  onPressed: busy || loadingShifts || shiftError != null
+                      ? null
+                      : openSchedule,
                   icon: const Icon(Icons.calendar_month_outlined, size: 20),
                   label: const Text('Giao / quản lý ca làm'),
                 ),

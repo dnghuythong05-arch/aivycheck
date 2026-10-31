@@ -5,14 +5,16 @@ import '../theme/app_theme.dart';
 
 class EmployeeAccountCard extends StatelessWidget {
   final AppUser user;
-  final VoidCallback onOpen;
-  final VoidCallback onEdit;
+  final VoidCallback? onOpen;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const EmployeeAccountCard({
     super.key,
     required this.user,
     required this.onOpen,
     required this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -70,6 +72,15 @@ class EmployeeAccountCard extends StatelessWidget {
                 tooltip: 'Chỉnh tài khoản',
                 onPressed: onEdit,
                 icon: Icon(Icons.edit_outlined, size: 20, color: colors.muted),
+              ),
+              IconButton(
+                tooltip: 'Xóa tài khoản',
+                onPressed: onDelete,
+                style: IconButton.styleFrom(
+                  foregroundColor: colors.error,
+                  disabledForegroundColor: colors.muted.withValues(alpha: 0.45),
+                ),
+                icon: const Icon(Icons.delete_outline_rounded, size: 22),
               ),
               Icon(Icons.chevron_right_rounded, size: 22, color: colors.muted),
             ],

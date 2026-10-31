@@ -520,7 +520,7 @@
         overflow: hidden;
         border: 1px solid var(--aivie-border);
         border-radius: 12px;
-        background: var(--aivie-background);
+        background: var(--aivie-surface);
         color: var(--aivie-text);
         font: 14px/1.5 Inter, Arial, sans-serif;
         box-shadow: 0 16px 48px #0002;
@@ -536,7 +536,7 @@
       }
   
       .aivy-face-dialog::backdrop {
-        background: #1f293733;
+        background: rgb(0 0 0 / 54%);
       }
   
       .aivy-face-header {

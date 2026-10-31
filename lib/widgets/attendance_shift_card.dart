@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/attendance_record.dart';
 import '../models/work_shift.dart';
 import '../theme/app_theme.dart';
+import 'attendance_status.dart';
 
 class AttendanceShiftCard extends StatelessWidget {
   final WorkShift? shift;
@@ -80,19 +81,15 @@ class AttendanceShiftCard extends StatelessWidget {
                 style: AiVieTheme.secondary(context),
               )
             else ...[
-              Text(
-                working ? 'Đang làm việc' : 'Đã hoàn thành ca',
-                style: typography.titleMedium?.copyWith(color: colors.success),
+              AttendanceStatusText(
+                label: AttendanceStatus.workLabel(currentRecord),
+                color: AttendanceStatus.workColor(context, currentRecord),
+                style: typography.titleMedium,
               ),
               const SizedBox(height: 6),
-              Text(
-                currentRecord.isLate
-                    ? 'Đi trễ: ${currentRecord.lateAmountText}'
-                    : 'Đúng giờ',
-                style: typography.bodyMedium?.copyWith(
-                  color: currentRecord.isLate ? colors.warning : colors.success,
-                  fontWeight: FontWeight.w600,
-                ),
+              AttendanceStatusText(
+                label: AttendanceStatus.timingLabel(currentRecord),
+                color: AttendanceStatus.timingColor(context, currentRecord),
               ),
               const SizedBox(height: 18),
               _AttendanceTimeRow(

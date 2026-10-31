@@ -2,7 +2,14 @@ import '../face/face_profile.dart';
 import '../face/face_service.dart';
 import '../face/face_store.dart';
 import '../gps/gps_config.dart';
+import '../gps/gps_service.dart';
+import '../services/attendance_service.dart';
 import '../services/attendance_store.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import '../services/employee_service.dart';
+import '../services/shift_service.dart';
+import '../services/attendance_setup_service.dart';
 
 import 'app_user.dart';
 import 'attendance_record.dart';
@@ -13,14 +20,22 @@ class _AttendanceData {
   bool saving = false;
 
   List<AppUser> users = demoUsers();
+  Set<String>? employeeIds;
+  final Map<String, Set<String>> remoteShiftIds = {};
+
   List<WorkShift> shifts = [];
+
+  // Giữ dữ liệu local cũ, không dùng làm lịch sử backend.
   List<AttendanceRecord> records = [];
+  final Map<String, List<AttendanceRecord>> backendRecords = {};
+  final Map<String, String> historyErrors = {};
 
   Map<String, String> shiftOwners = {};
   Map<String, String> recordOwners = {};
   Map<String, String> selectedIds = {};
 
   GpsConfig gps = GpsConfig();
+  bool gpsLoaded = false;
 
   int nextId = 0;
   int nextUserId = 0;
@@ -34,14 +49,26 @@ class AttendanceSession {
 
   _FacePermit? _facePermit;
 
-  String? _actorId;
+  final AuthService auth;
+
+  late final EmployeeService _employeeService = EmployeeService(auth);
+  late final ShiftService _shiftService = ShiftService(auth);
+  late final AttendanceService _attendanceService = AttendanceService(auth);
+
+  late final AttendanceSetupService _setupService = AttendanceSetupService(
+    auth,
+  );
+
+  String? get _actorId => currentUser?.id;
   String? _targetId;
 
   AttendanceSession({
     AttendanceStore? store,
     FaceStore? faceStore,
     FaceVerifier? faceVerifier,
-  }) : _store = store ?? AttendanceStore(),
+    AuthService? auth,
+  }) : auth = auth ?? AuthService(),
+       _store = store ?? AttendanceStore(),
        _faceStore = faceStore ?? FaceStore(),
        _faceVerifier = faceVerifier ?? FaceService.verify,
        _data = _AttendanceData();
@@ -49,13 +76,17 @@ class AttendanceSession {
   AttendanceSession._(
     this._store,
     this._data,
-    this._actorId,
+    this.auth,
     this._targetId,
     this._faceStore,
     this._faceVerifier,
   );
 
   AppUser? _findUser(String? id) {
+    final actor = currentUser;
+
+    if (actor != null && actor.id == id) return actor;
+
     for (final user in _data.users) {
       if (user.id == id) return user;
     }
@@ -63,9 +94,9 @@ class AttendanceSession {
     return null;
   }
 
-  AppUser? get currentUser => _findUser(_actorId);
+  AppUser? get currentUser => auth.currentUser;
 
-  AppUser? get account => _findUser(_targetId);
+  AppUser? get account => isOwnSession ? currentUser : _findUser(_targetId);
 
   bool get isAdmin => currentUser?.isAdmin == true;
 
@@ -73,7 +104,9 @@ class AttendanceSession {
 
   GpsConfig get gpsConfig => _data.gps;
 
-  String? get _gpsUnavailable => gpsConfig.hasCenter
+  String? get _gpsUnavailable => !_data.gpsLoaded
+      ? 'Chưa tải được địa điểm từ backend. Hãy thử cập nhật vị trí.'
+      : gpsConfig.hasCenter
       ? null
       : 'Chưa có địa điểm chấm công. '
             'Hãy nhờ Admin thiết lập địa điểm trước.';
@@ -81,29 +114,89 @@ class AttendanceSession {
   List<AppUser> get employees {
     if (!isAdmin) return const [];
 
-    final result = _data.users.where((user) => !user.isAdmin).toList()
-      ..sort((a, b) => a.fullName.compareTo(b.fullName));
+    final result =
+        _data.users
+            .where(
+              (user) =>
+                  !user.isAdmin &&
+                  (_data.employeeIds?.contains(user.id) ?? false),
+            )
+            .toList()
+          ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
     return List.unmodifiable(result);
   }
 
-  List<WorkShift> get shifts => List.unmodifiable(
-    _data.shifts.where((shift) => _data.shiftOwners[shift.id] == _targetId),
-  );
+  List<WorkShift> get shifts {
+    final visible = _data.remoteShiftIds[_targetId] ?? const <String>{};
 
-  List<AttendanceRecord> get records {
-    final result =
-        _data.records
-            .where((record) => _data.recordOwners[record.shiftId] == _targetId)
-            .toList()
-          ..sort((a, b) => b.checkIn.compareTo(a.checkIn));
+    final result = _data.shifts
+        .where(
+          (shift) =>
+              _data.shiftOwners[shift.id] == _targetId &&
+              visible.contains(shift.id),
+        )
+        .toList();
+
+    final active = activeRecord;
+
+    if (active != null && !result.any((shift) => shift.id == active.shiftId)) {
+      result.add(active.shiftSnapshot);
+    }
+
+    result.sort((a, b) => a.start.compareTo(b.start));
 
     return List.unmodifiable(result);
+  }
+
+  List<AttendanceRecord> get records {
+    final result = [...?_data.backendRecords[_targetId]]
+      ..sort((a, b) => b.checkIn.compareTo(a.checkIn));
+
+    return List.unmodifiable(result);
+  }
+
+  String? get historyError => _data.historyErrors[_targetId];
+
+  Future<String?> loadRecords() async {
+    clearFaceVerification();
+
+    final error = _unavailable;
+    if (error != null) return error;
+
+    final actorId = _actorId;
+    final targetId = _targetId!;
+
+    try {
+      final rows = await _attendanceService.list(targetId);
+
+      if (_actorId != actorId || _targetId != targetId || currentUser == null) {
+        return 'Phiên đăng nhập đã thay đổi. Hãy mở lại lịch sử.';
+      }
+
+      _data.backendRecords[targetId] = rows;
+      _data.historyErrors.remove(targetId);
+
+      final active = activeRecord;
+
+      if (active != null) {
+        _data.selectedIds[targetId] = active.shiftId;
+      }
+
+      return null;
+    } on ApiException catch (error) {
+      if (_actorId == actorId && _targetId == targetId) {
+        _data.historyErrors[targetId] = error.message;
+      }
+
+      return error.message;
+    }
   }
 
   String? get selectedShiftId => _data.selectedIds[_targetId];
 
-  String createShiftId() => 'shift_${++_data.nextId}';
+  String createShiftId() =>
+      'draft_${DateTime.now().microsecondsSinceEpoch}_${++_data.nextId}';
 
   WorkShift? get selectedShift {
     for (final shift in shifts) {
@@ -123,7 +216,6 @@ class AttendanceSession {
 
   AttendanceRecord? get selectedRecord {
     final id = selectedShiftId;
-
     return id == null ? null : recordFor(id);
   }
 
@@ -156,6 +248,11 @@ class AttendanceSession {
 
   Future<void> load() async {
     clearFaceVerification();
+
+    _data.remoteShiftIds.clear();
+    _data.backendRecords.clear();
+    _data.historyErrors.clear();
+    _data.gpsLoaded = false;
 
     final json = await _store.read();
 
@@ -217,10 +314,16 @@ class AttendanceSession {
         ? GpsConfig()
         : GpsConfig.fromJson(Map<String, dynamic>.from(json['gps'] as Map));
 
+    final actor = currentUser;
+
+    if (actor != null) {
+      users.removeWhere((user) => user.id == actor.id);
+      users.add(actor);
+    }
+
     final userIds = users.map((user) => user.id).toSet();
 
     if (userIds.length != users.length ||
-        users.map((user) => user.username).toSet().length != users.length ||
         !users.any((user) => user.isAdmin) ||
         shifts.map((shift) => shift.id).toSet().length != shifts.length ||
         records.map((record) => record.shiftId).toSet().length !=
@@ -297,32 +400,37 @@ class AttendanceSession {
     _data.loaded = true;
   }
 
-  String? signIn(String username, String password) {
+  Future<String?> signIn(String username, String password) async {
     clearFaceVerification();
 
     final error = _storageUnavailable;
-
     if (error != null) return error;
 
-    final login = username.trim().toLowerCase();
+    try {
+      await auth.signIn(username, password);
 
-    for (final user in _data.users) {
-      if (user.username == login && user.acceptsPassword(password)) {
-        _actorId = user.id;
-        _targetId = user.id;
+      _targetId = currentUser!.id;
+      _mergeUsers([currentUser!]);
 
-        return null;
-      }
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
     }
-
-    return 'Tài khoản hoặc mật khẩu chưa đúng.';
   }
 
-  void signOut() {
+  Future<void> refreshUser() => auth.refreshUser();
+
+  Future<String?> signOut() async {
     clearFaceVerification();
 
-    _actorId = null;
-    _targetId = null;
+    try {
+      await auth.signOut();
+      _targetId = null;
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    }
   }
 
   AttendanceSession forEmployee(String userId) {
@@ -339,7 +447,7 @@ class AttendanceSession {
     return AttendanceSession._(
       _store,
       _data,
-      _actorId,
+      auth,
       userId,
       _faceStore,
       _faceVerifier,
@@ -347,12 +455,81 @@ class AttendanceSession {
   }
 
   void clearFaceVerification() => _facePermit = null;
+
   Future<Set<String>> registeredIds() async {
     if (!isAdmin) return <String>{};
 
-    final profiles = await _faceStore.readAll();
+    return _setupService.registeredIds();
+  }
 
-    return profiles.keys.toSet();
+  Future<String?> migrateLocalSetup() async {
+    final error = _unavailable;
+    if (error != null) return error;
+
+    if (!isAdmin || !isOwnSession) {
+      return 'Chỉ Admin được chuyển thiết lập cũ.';
+    }
+
+    final actorId = _actorId;
+    final allowed = {...?_data.employeeIds, actorId!};
+
+    final localGps = _data.gps;
+
+    _data.saving = true;
+
+    try {
+      if (localGps.hasCenter) {
+        await _setupService.saveGps(localGps, importing: true);
+      }
+
+      final profiles = await _faceStore.readAll();
+
+      for (final entry in profiles.entries) {
+        if (!isAdmin || _actorId != actorId) {
+          return 'Phiên quản lý đã thay đổi. '
+              'Hãy đăng nhập lại.';
+        }
+
+        if (allowed.contains(entry.key)) {
+          await _setupService.saveFace(entry.key, entry.value, importing: true);
+        }
+      }
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } on FaceException catch (error) {
+      return error.message;
+    } catch (_) {
+      return 'Chưa chuyển được thiết lập cũ. Hãy thử lại.';
+    } finally {
+      _data.saving = false;
+    }
+  }
+
+  Future<String?> loadGpsConfig() async {
+    clearFaceVerification();
+
+    final error = _unavailable;
+    if (error != null) return error;
+
+    final actorId = _actorId;
+
+    try {
+      final config = await _setupService.loadGps();
+
+      if (_actorId != actorId || currentUser == null) {
+        return 'Phiên đăng nhập đã thay đổi. Hãy mở lại.';
+      }
+
+      _data.gps = config;
+      _data.gpsLoaded = true;
+
+      return null;
+    } on ApiException catch (error) {
+      _data.gpsLoaded = false;
+      return error.message;
+    }
   }
 
   Future<String?> registerFace(String userId) async {
@@ -364,12 +541,13 @@ class AttendanceSession {
     }
 
     final user = _findUser(userId);
+
     if (user == null) return 'Không tìm thấy tài khoản.';
 
     final actorId = _actorId;
 
     try {
-      final existingProfile = await _faceStore.read(userId);
+      final existingProfile = await _setupService.loadFace(userId);
 
       final readError = _unavailable;
       if (readError != null) return readError;
@@ -393,18 +571,15 @@ class AttendanceSession {
       _data.saving = true;
 
       try {
-        if (profile == null) {
-          await _faceStore.delete(userId);
-        } else {
-          await _faceStore.save(userId, profile);
-        }
-
+        await _setupService.saveFace(userId, profile);
         clearFaceVerification();
 
         return null;
       } finally {
         _data.saving = false;
       }
+    } on ApiException catch (error) {
+      return error.message;
     } on FaceCancelled {
       return 'Đã hủy đăng ký khuôn mặt.';
     } on FaceException catch (error) {
@@ -418,7 +593,6 @@ class AttendanceSession {
     clearFaceVerification();
 
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isOwnSession) {
@@ -426,7 +600,6 @@ class AttendanceSession {
     }
 
     final gpsError = _gpsUnavailable;
-
     if (gpsError != null) return gpsError;
 
     final user = currentUser!;
@@ -443,7 +616,7 @@ class AttendanceSession {
     final checkingIn = selectedRecord == null;
 
     try {
-      final profile = await _faceStore.read(user.id);
+      final profile = await _setupService.loadFace(user.id);
 
       if (profile == null) {
         return 'Tài khoản chưa có mẫu khuôn mặt. '
@@ -453,11 +626,9 @@ class AttendanceSession {
       final matched = await _faceVerifier(user.fullName, profile);
 
       final pendingError = _unavailable;
-
       if (pendingError != null) return pendingError;
 
       final pendingGpsError = _gpsUnavailable;
-
       if (pendingGpsError != null) return pendingGpsError;
 
       if (!isOwnSession ||
@@ -477,6 +648,8 @@ class AttendanceSession {
       _facePermit = _FacePermit(user.id, shiftId, checkingIn);
 
       return null;
+    } on ApiException catch (error) {
+      return error.message;
     } on FaceCancelled {
       return 'Đã hủy xác minh khuôn mặt.';
     } on FaceException catch (error) {
@@ -488,7 +661,6 @@ class AttendanceSession {
 
   String? _consumeFaceVerification({required bool checkingIn}) {
     final permit = _facePermit;
-
     clearFaceVerification();
 
     if (permit == null ||
@@ -556,6 +728,42 @@ class AttendanceSession {
     }
   }
 
+  void _mergeUsers(Iterable<AppUser> users) {
+    final registry = {for (final user in _data.users) user.id: user};
+
+    for (final user in users) {
+      registry[user.id] = user;
+    }
+
+    _data.users = registry.values.toList();
+  }
+
+  Future<String?> loadEmployees() async {
+    final error = _unavailable;
+    if (error != null) return error;
+
+    if (!isAdmin) {
+      return 'Chỉ Admin được xem danh sách nhân viên.';
+    }
+
+    final actorId = _actorId;
+
+    try {
+      final users = await _employeeService.list();
+
+      if (!isAdmin || _actorId != actorId) {
+        return 'Phiên quản lý đã thay đổi. Hãy đăng nhập lại.';
+      }
+
+      _mergeUsers(users);
+      _data.employeeIds = users.map((user) => user.id).toSet();
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    }
+  }
+
   Future<String?> saveEmployee({
     String? id,
     required String username,
@@ -564,7 +772,6 @@ class AttendanceSession {
     required String password,
   }) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) {
@@ -575,105 +782,278 @@ class AttendanceSession {
     final mail = email.trim().toLowerCase();
     final name = fullName.trim();
 
-    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(login)) {
-      return 'Tài khoản chỉ dùng chữ, '
-          'số và dấu gạch dưới.';
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(login) || login.length > 64) {
+      return 'Tài khoản tối đa 64 ký tự, '
+          'chỉ dùng chữ, số và dấu gạch dưới.';
     }
 
-    if (name.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(mail)) {
-      return 'Hãy nhập họ tên và email hợp lệ.';
+    if (name.isEmpty ||
+        name.length > 120 ||
+        mail.length > 254 ||
+        !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(mail)) {
+      return 'Hãy nhập họ tên tối đa 120 ký tự '
+          'và email hợp lệ.';
     }
 
-    if (_data.users.any((user) => user.id != id && user.username == login)) {
-      return 'Tên tài khoản đã được sử dụng.';
+    if ((id == null && password.isEmpty) || password.length > 128) {
+      return 'Hãy nhập mật khẩu từ 1 đến 128 ký tự.';
     }
 
-    if (_data.users.any((user) => user.id != id && user.email == mail)) {
-      return 'Email đã được sử dụng.';
-    }
+    final actorId = _actorId;
+    _data.saving = true;
 
-    final next = [..._data.users];
-    var nextNumber = _data.nextUserId;
-
-    if (id == null) {
-      if (password.isEmpty) return 'Hãy nhập mật khẩu.';
-
-      String newId;
-
-      do {
-        newId = 'employee_${++nextNumber}';
-      } while (_findUser(newId) != null);
-
-      next.add(
-        AppUser(
-          id: newId,
-          username: login,
-          fullName: name,
-          email: mail,
-          password: password,
-          role: UserRole.employee,
-        ),
-      );
-    } else {
-      final index = next.indexWhere((user) => user.id == id);
-
-      if (index == -1 || next[index].isAdmin) {
-        return 'Không tìm thấy tài khoản nhân viên.';
-      }
-
-      next[index] = next[index].update(
+    try {
+      final user = await _employeeService.save(
+        id: id,
         username: login,
         fullName: name,
         email: mail,
         password: password,
       );
+
+      if (!isAdmin || _actorId != actorId) {
+        return 'Phiên quản lý đã thay đổi. Hãy đăng nhập lại.';
+      }
+
+      _mergeUsers([user]);
+
+      _data.employeeIds = {...?_data.employeeIds, user.id};
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
+    }
+  }
+
+  void _mergeShifts(Iterable<ShiftAssignment> assignments) {
+    final registry = {for (final shift in _data.shifts) shift.id: shift};
+
+    for (final item in assignments) {
+      registry[item.shift.id] = item.shift;
+      _data.shiftOwners[item.shift.id] = item.userId;
     }
 
-    return _commit(users: next, nextUserId: nextNumber);
+    _data.shifts = registry.values.toList();
+  }
+
+  Future<String?> migrateLocalShifts() async {
+    final error = _unavailable;
+    if (error != null) return error;
+
+    if (!isAdmin || !isOwnSession) {
+      return 'Chỉ Admin được chuyển ca cũ.';
+    }
+
+    final actorId = _actorId;
+    final allowed = {...?_data.employeeIds, actorId!};
+
+    final old = <String, WorkShift>{};
+    final owners = <String, String>{};
+    final archived = <String>{};
+
+    for (final shift in _data.shifts) {
+      final owner = _data.shiftOwners[shift.id];
+
+      if (!shift.isRemote &&
+          !shift.id.startsWith('draft_') &&
+          allowed.contains(owner)) {
+        old[shift.id] = shift;
+        owners[shift.id] = owner!;
+      }
+    }
+
+    for (final record in _data.records) {
+      final shift = record.shiftSnapshot;
+      final owner = _data.recordOwners[shift.id];
+
+      if (!shift.isRemote &&
+          allowed.contains(owner) &&
+          !old.containsKey(shift.id)) {
+        old[shift.id] = shift;
+        owners[shift.id] = owner!;
+        archived.add(shift.id);
+      }
+    }
+
+    if (old.isEmpty) return null;
+
+    _data.saving = true;
+
+    try {
+      final mapping = await _shiftService.importLegacy([
+        for (final entry in old.entries)
+          {
+            'legacyId': entry.key,
+            'userId': owners[entry.key],
+            'name': entry.value.name,
+            'start': entry.value.start.toUtc().toIso8601String(),
+            'end': entry.value.end.toUtc().toIso8601String(),
+            'isDeleted': archived.contains(entry.key),
+          },
+      ]);
+
+      if (!isAdmin || _actorId != actorId) {
+        return 'Phiên quản lý đã thay đổi. Hãy đăng nhập lại.';
+      }
+
+      String remap(String id) => mapping[id]?.shift.id ?? id;
+
+      final nextShifts = <String, WorkShift>{};
+
+      for (final shift in _data.shifts) {
+        final next = mapping[shift.id]?.shift ?? shift;
+        nextShifts[next.id] = next;
+      }
+
+      for (final item in mapping.values) {
+        nextShifts[item.shift.id] = item.shift;
+      }
+
+      final shiftOwners = {
+        for (final entry in _data.shiftOwners.entries)
+          remap(entry.key): entry.value,
+        for (final item in mapping.values) item.shift.id: item.userId,
+      };
+
+      final nextRecords = _data.records
+          .map(
+            (record) => AttendanceRecord(
+              shiftSnapshot: record.shiftSnapshot.withId(remap(record.shiftId)),
+              checkIn: record.checkIn,
+              checkOut: record.checkOut,
+            ),
+          )
+          .toList();
+
+      final saved = await _commit(
+        shifts: nextShifts.values.toList(),
+        records: nextRecords,
+        shiftOwners: shiftOwners,
+        recordOwners: {
+          for (final entry in _data.recordOwners.entries)
+            remap(entry.key): entry.value,
+        },
+        selectedIds: {
+          for (final entry in _data.selectedIds.entries)
+            entry.key: remap(entry.value),
+        },
+      );
+
+      return saved == null
+          ? null
+          : 'Ca đã được chuyển lên máy chủ nhưng chưa cập nhật '
+                'được dữ liệu local. Hãy thử lại.';
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
+    }
+  }
+
+  Future<String?> loadShifts() async {
+    clearFaceVerification();
+
+    final error = _unavailable;
+    if (error != null) return error;
+
+    final actorId = _actorId;
+    final targetId = _targetId!;
+    final all = isAdmin && isOwnSession;
+
+    try {
+      final rows = await _shiftService.list(userId: all ? null : targetId);
+
+      if (_actorId != actorId || _targetId != targetId || currentUser == null) {
+        return 'Phiên đăng nhập đã thay đổi. Hãy mở lại lịch.';
+      }
+
+      final recordError = await loadRecords();
+
+      if (recordError != null) return recordError;
+
+      if (_actorId != actorId || _targetId != targetId || currentUser == null) {
+        return 'Phiên đăng nhập đã thay đổi. Hãy mở lại lịch.';
+      }
+
+      _mergeShifts(rows);
+
+      final targets = all ? {...?_data.employeeIds, actorId!} : {targetId};
+
+      for (final id in targets) {
+        _data.remoteShiftIds[id] = rows
+            .where((row) => row.userId == id)
+            .map((row) => row.shift.id)
+            .toSet();
+
+        final active = _data.backendRecords[id]
+            ?.where((record) => record.checkOut == null)
+            .firstOrNull;
+
+        if (active != null) {
+          _data.selectedIds[id] = active.shiftId;
+        } else if (!(_data.remoteShiftIds[id]?.contains(
+              _data.selectedIds[id],
+            ) ??
+            false)) {
+          _data.selectedIds.remove(id);
+        }
+      }
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    }
   }
 
   Future<String?> saveShift(WorkShift shift) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) {
       return 'Chỉ Admin được tạo hoặc sửa ca.';
     }
 
-    final next = [..._data.shifts];
-
-    final index = next.indexWhere((item) => item.id == shift.id);
-
-    if (index != -1 && _data.shiftOwners[shift.id] != _targetId) {
-      return 'Ca này thuộc tài khoản khác.';
+    if (!shift.id.startsWith('draft_') &&
+        !(_data.remoteShiftIds[_targetId]?.contains(shift.id) ?? false)) {
+      return 'Ca chưa có trên máy chủ hoặc đã bị xóa. '
+          'Hãy tải lại lịch.';
     }
 
-    if (index == -1 &&
-        _data.records.any((record) => record.shiftId == shift.id)) {
-      return 'Mã ca đã có trong lịch sử.';
+    final actorId = _actorId;
+    final targetId = _targetId!;
+
+    _data.saving = true;
+
+    try {
+      final item = await _shiftService.save(shift, targetId);
+
+      if (_actorId != actorId || _targetId != targetId || !isAdmin) {
+        return 'Phiên quản lý đã thay đổi. Hãy mở lại.';
+      }
+
+      _mergeShifts([item]);
+
+      _data.remoteShiftIds[targetId] = {
+        ...?_data.remoteShiftIds[targetId],
+        item.shift.id,
+      };
+
+      _data.selectedIds.putIfAbsent(targetId, () => item.shift.id);
+
+      await _commit();
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
     }
-
-    if (index == -1) {
-      next.add(shift);
-    } else {
-      next[index] = shift;
-    }
-
-    final owners = {..._data.shiftOwners};
-
-    owners[shift.id] = _targetId!;
-
-    final selected = {..._data.selectedIds};
-
-    selected.putIfAbsent(_targetId!, () => shift.id);
-
-    return _commit(shifts: next, shiftOwners: owners, selectedIds: selected);
   }
 
   Future<String?> deleteShift(String id) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) return 'Chỉ Admin được xóa ca.';
@@ -686,24 +1066,37 @@ class AttendanceSession {
       return 'Hãy CHECK OUT ca đang làm trước khi xóa.';
     }
 
-    final selected = {..._data.selectedIds};
+    final actorId = _actorId;
+    final targetId = _targetId!;
 
-    if (selected[_targetId] == id) {
-      selected.remove(_targetId);
+    _data.saving = true;
+
+    try {
+      await _shiftService.delete(id);
+
+      if (_actorId != actorId || _targetId != targetId || !isAdmin) {
+        return 'Phiên quản lý đã thay đổi. Hãy mở lại.';
+      }
+
+      _data.remoteShiftIds[targetId]?.remove(id);
+
+      if (_data.selectedIds[targetId] == id) {
+        _data.selectedIds.remove(targetId);
+      }
+
+      await _commit();
+      clearFaceVerification();
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
     }
-
-    final owners = {..._data.shiftOwners}..remove(id);
-
-    return _commit(
-      shifts: _data.shifts.where((shift) => shift.id != id).toList(),
-      shiftOwners: owners,
-      selectedIds: selected,
-    );
   }
 
   Future<String?> selectShift(String id) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isOwnSession) {
@@ -726,7 +1119,6 @@ class AttendanceSession {
 
   Future<String?> saveGpsConfig(GpsConfig config) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) {
@@ -737,30 +1129,57 @@ class AttendanceSession {
       return 'Hãy chọn địa điểm chấm công.';
     }
 
-    return _commit(gps: config);
+    return _writeGps(() => _setupService.saveGps(config));
   }
 
   Future<String?> clearGpsConfig() async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) {
       return 'Chỉ Admin được xóa địa điểm chấm công.';
     }
 
-    final saveError = await _commit(
-      gps: GpsConfig(radiusMeters: gpsConfig.radiusMeters),
-    );
-
-    if (saveError == null) clearFaceVerification();
-
-    return saveError;
+    return _writeGps(_setupService.clearGps);
   }
 
-  Future<String?> checkIn(DateTime now) async {
-    final error = _unavailable;
+  Future<String?> _writeGps(Future<GpsConfig> Function() request) async {
+    final actorId = _actorId;
+    _data.saving = true;
 
+    try {
+      final config = await request();
+
+      if (!isAdmin || _actorId != actorId) {
+        return 'Phiên quản lý đã thay đổi. Hãy đăng nhập lại.';
+      }
+
+      _data.gps = config;
+      _data.gpsLoaded = true;
+
+      clearFaceVerification();
+
+      await _commit();
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
+    }
+  }
+
+  Future<String?> checkIn(DateTime now, {required GpsCheckResult gps}) =>
+      _submitAttendance(checkingIn: true, gps: gps);
+
+  Future<String?> checkOut(DateTime now, {required GpsCheckResult gps}) =>
+      _submitAttendance(checkingIn: false, gps: gps);
+
+  Future<String?> _submitAttendance({
+    required bool checkingIn,
+    required GpsCheckResult gps,
+  }) async {
+    final error = _unavailable;
     if (error != null) return error;
 
     if (!isOwnSession) {
@@ -768,112 +1187,89 @@ class AttendanceSession {
     }
 
     final gpsError = _gpsUnavailable;
-
     if (gpsError != null) return gpsError;
 
-    final shift = selectedShift;
+    final shiftId = selectedShiftId;
 
-    if (shift == null) {
+    if (shiftId == null || selectedShift == null) {
       return 'Hãy chọn ca được giao trong Lịch làm.';
     }
 
-    if (selectedRecord != null) {
-      return 'Ca này đã có lượt chấm công.';
-    }
-
-    if (activeRecord != null) {
-      return 'Bạn còn một ca chưa CHECK OUT.';
-    }
-
-    final validDay =
-        sameAttendanceDay(now, shift.start) ||
-        (shift.isOvernight && sameAttendanceDay(now, shift.end));
-
-    if (!validDay) {
-      return 'Hãy chọn ca có ngày làm '
-          'phù hợp với hôm nay.';
-    }
-
-    final faceError = _consumeFaceVerification(checkingIn: true);
+    final faceError = _consumeFaceVerification(checkingIn: checkingIn);
 
     if (faceError != null) return faceError;
 
-    return _commit(
-      records: [
-        AttendanceRecord(shiftSnapshot: shift.snapshot(), checkIn: now),
-        ..._data.records,
-      ],
-      recordOwners: {..._data.recordOwners, shift.id: _targetId!},
-    );
-  }
+    final actorId = _actorId!;
 
-  Future<String?> checkOut(DateTime now) async {
-    final error = _unavailable;
+    _data.saving = true;
+    String? failure;
 
-    if (error != null) return error;
+    try {
+      final record = await _attendanceService.submit(
+        userId: actorId,
+        shiftId: shiftId,
+        checkingIn: checkingIn,
+        gps: gps,
+      );
 
-    if (!isOwnSession) {
-      return 'Không thể chấm công thay nhân viên.';
+      if (_actorId != actorId || _targetId != actorId) {
+        return 'Phiên đăng nhập đã thay đổi. '
+            'Hãy tải lại lịch sử.';
+      }
+
+      final rows = [...?_data.backendRecords[actorId]]
+        ..removeWhere((item) => item.shiftId == record.shiftId)
+        ..add(record);
+
+      _data.backendRecords[actorId] = rows;
+      _data.historyErrors.remove(actorId);
+
+      return null;
+    } on ApiException catch (error) {
+      failure = error.message;
+    } finally {
+      _data.saving = false;
     }
 
-    final gpsError = _gpsUnavailable;
-
-    if (gpsError != null) return gpsError;
-
-    final record = selectedRecord;
-
-    if (record == null) {
-      return 'Bạn chưa CHECK IN ca này.';
+    // Có thể máy chủ đã lưu nhưng phản hồi bị mất.
+    if (_actorId == actorId && _targetId == actorId) {
+      await loadRecords();
     }
 
-    if (record.checkOut != null) {
-      return 'Ca này đã hoàn thành.';
-    }
-
-    if (now.isBefore(record.checkIn)) {
-      return 'Giờ thiết bị đang trước giờ CHECK IN. '
-          'Hãy kiểm tra lại.';
-    }
-
-    final faceError = _consumeFaceVerification(checkingIn: false);
-
-    if (faceError != null) return faceError;
-
-    final next = [..._data.records];
-
-    final index = next.indexWhere((item) => item.shiftId == record.shiftId);
-
-    next[index] = record.finish(now);
-
-    return _commit(records: next);
+    return failure;
   }
 
   Future<String?> deleteRecord(String shiftId) async {
     final error = _unavailable;
-
     if (error != null) return error;
 
     if (!isAdmin) {
       return 'Chỉ Admin được xóa lịch sử.';
     }
 
-    final record = recordFor(shiftId);
+    final actorId = _actorId;
+    final targetId = _targetId!;
 
-    if (record == null) {
-      return 'Không tìm thấy lượt chấm công.';
+    _data.saving = true;
+
+    try {
+      await _attendanceService.delete(shiftId);
+
+      if (!isAdmin || _actorId != actorId || _targetId != targetId) {
+        return 'Phiên quản lý đã thay đổi. '
+            'Hãy tải lại lịch sử.';
+      }
+
+      _data.backendRecords[targetId]?.removeWhere(
+        (row) => row.shiftId == shiftId,
+      );
+
+      return null;
+    } on ApiException catch (error) {
+      return error.message;
+    } finally {
+      _data.saving = false;
     }
-
-    if (record.checkOut == null) {
-      return 'Hãy CHECK OUT ca đang làm '
-          'trước khi xóa lịch sử.';
-    }
-
-    final owners = {..._data.recordOwners}..remove(shiftId);
-
-    return _commit(
-      records: _data.records.where((item) => item.shiftId != shiftId).toList(),
-      recordOwners: owners,
-    );
   }
 }
 
