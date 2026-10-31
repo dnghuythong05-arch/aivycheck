@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -55,12 +56,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(attendance_setup_router)
     application.include_router(attendance_router)
 
-    @application.get("/", include_in_schema=False)
-    def root() -> RedirectResponse:
-        return RedirectResponse(
-            url="/docs",
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-        )
+    if config.web_dist_dir is None:
+        @application.get("/", include_in_schema=False)
+        def root() -> RedirectResponse:
+            return RedirectResponse(
+                url="/docs",
+                status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            )
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(
@@ -128,6 +130,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": "ok",
             "database": "connected",
         }
+
+    # Luôn đăng ký API trước khi mount web tại đường dẫn gốc.
+    if config.web_dist_dir is not None:
+        if not (config.web_dist_dir / "index.html").is_file():
+            raise RuntimeError("WEB_DIST_DIR thiếu bản dựng web index.html.")
+        application.mount(
+            "/",
+            StaticFiles(directory=config.web_dist_dir, html=True),
+            name="web",
+        )
 
     return application
 

@@ -12,6 +12,12 @@ from app.users.models import User
 
 @pytest.fixture(scope="session")
 def test_settings():
+    if os.environ.get("DATABASE_URL"):
+        raise pytest.UsageError(
+            "Không chạy test khi DATABASE_URL đang được đặt. "
+            "Hãy dùng database test riêng qua các biến DB_* của CI."
+        )
+
     if os.environ.get("DB_NAME") != "aivycheck_test":
         raise pytest.UsageError(
             "Bộ test cần database riêng DB_NAME=aivycheck_test. "

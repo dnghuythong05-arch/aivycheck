@@ -88,7 +88,7 @@ class ApiClient {
       throw const ApiException('Backend phản hồi quá lâu. Hãy thử lại.');
     } on http.ClientException {
       throw const ApiException(
-        'Chưa kết nối được backend. Hãy kiểm tra terminal chạy API.',
+        'Chưa kết nối được máy chủ. Hãy kiểm tra kết nối và thử lại.',
       );
     } on FormatException {
       throw const ApiException('Dữ liệu backend trả về chưa hợp lệ.');

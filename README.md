@@ -14,6 +14,15 @@
 - Giao diện sáng/tối, dùng chung màu trạng thái.
 - Bảng lương minh họa cho tài khoản huythong gốc.
 
+## Triển khai online
+
+Xem [DEPLOY.md](DEPLOY.md) để triển khai web và API cùng một địa chỉ HTTPS
+trên Render, dùng PostgreSQL của Neon. Không cần cài Docker trên máy Windows.
+
+Gói triển khai tự chạy migration và chỉ tạo tài khoản ban đầu còn thiếu.
+CI kiểm tra Flutter, API/PostgreSQL và dựng/chạy thử Docker trước khi Render
+tự triển khai các lần cập nhật sau.
+
 ## Công nghệ
 
 | Thành phần | Công nghệ |
@@ -117,5 +126,5 @@ Kiểm thử thủ công luồng chính:
 - Token đang giữ trong bộ nhớ; tải lại toàn trang cần đăng nhập lại.
 - Bảng lương là dữ liệu mẫu, chưa phải hệ thống tính lương thực tế.
 - Dữ liệu lượt thử local trước bước chuyển backend không tự nhập vào lịch sử PostgreSQL.
-- Bản hiện tại chạy localhost, chưa cấu hình truy cập từ máy khác/Internet. Thư viện và mô hình khuôn mặt được tải từ CDN khi cần.
+- Có thể chạy localhost hoặc triển khai HTTPS theo `DEPLOY.md`. Thư viện và mô hình khuôn mặt được tải từ CDN khi cần.
 - `.env`, `.venv` và tệp sinh tự động được loại khỏi Git. GitHub lưu mã nguồn; dữ liệu PostgreSQL không đồng bộ qua Git.

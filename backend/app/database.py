@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy import URL, Engine, create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from .config import Settings
@@ -12,8 +13,14 @@ class Base(DeclarativeBase):
     pass
 
 
-def create_database_engine(settings: Settings) -> Engine:
-    url = URL.create(
+def database_url(settings: Settings) -> URL:
+    if settings.database_url is not None:
+        return make_url(settings.database_url.get_secret_value()).set(
+            drivername="postgresql+psycopg",
+        )
+
+    assert settings.db_password is not None
+    return URL.create(
         drivername="postgresql+psycopg",
         username=settings.db_user,
         password=settings.db_password.get_secret_value(),
@@ -22,8 +29,10 @@ def create_database_engine(settings: Settings) -> Engine:
         database=settings.db_name,
     )
 
+
+def create_database_engine(settings: Settings) -> Engine:
     return create_engine(
-        url,
+        database_url(settings),
         pool_pre_ping=True,
         pool_timeout=5,
         connect_args={"connect_timeout": 5},
